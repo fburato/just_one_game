@@ -1,2 +1,2 @@
-# Just One
+# Just One Game
 
