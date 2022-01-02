@@ -1,4 +1,4 @@
-package com.github.fburato.justone;
+package com.github.fburato.justone.wiring;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.SpringBootConfiguration;
