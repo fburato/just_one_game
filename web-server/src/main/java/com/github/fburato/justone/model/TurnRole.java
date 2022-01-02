@@ -1,7 +1,6 @@
-package com.github.fburato.justone.dtos.gamestates;
+package com.github.fburato.justone.model;
 
 public enum TurnRole {
-    HOST,
     GUESSER,
     REMOVER,
     PROVIDER

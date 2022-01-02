@@ -1,4 +1,4 @@
-package com.github.fburato.justone.dtos.gamestates;
+package com.github.fburato.justone.model;
 
 public enum TurnPhase {
     SELECTION,

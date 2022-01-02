@@ -26,6 +26,9 @@
         <mainClass>com.github.fburato.justone.wiring.Main</mainClass>
         <commons-lang3.version>3.12.0</commons-lang3.version>
         <functional-utils-core.version>1.0.0</functional-utils-core.version>
+        <modelmapper.version>2.4.2</modelmapper.version>
+        <vavr.version>0.10.4</vavr.version>
+        <mockito-core.version>4.2.0</mockito-core.version>
     </properties>
 
     <modules>
@@ -60,6 +63,16 @@
                 <version>${immutables.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>org.modelmapper</groupId>
+                <artifactId>modelmapper</artifactId>
+                <version>${modelmapper.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.vavr</groupId>
+                <artifactId>vavr</artifactId>
+                <version>${vavr.version}</version>
+            </dependency>
 
             <!-- Tests -->
             <dependency>
@@ -84,6 +97,12 @@
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-engine</artifactId>
                 <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito-core.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>

@@ -2,21 +2,19 @@ package com.github.fburato.justone;
 
 import com.github.fburato.justone.dtos.gamestates.GameStateDTO;
 import com.github.fburato.justone.dtos.gamestates.GameStateSummaryDTO;
-import com.github.fburato.justone.dtos.gamestates.GameStatus;
-import com.github.fburato.justone.dtos.gamestates.ImmutableGameStateDTO;
-import com.github.fburato.justone.dtos.gamestates.ImmutableGameStateSummaryDTO;
-import com.github.fburato.justone.dtos.gamestates.ImmutableTurnDTO;
 import com.github.fburato.justone.dtos.gamestates.PlayerDTO;
-import com.github.fburato.justone.dtos.gamestates.PlayerRole;
 import com.github.fburato.justone.dtos.gamestates.PlayerWordDTO;
 import com.github.fburato.justone.dtos.gamestates.TurnDTO;
-import com.github.fburato.justone.dtos.gamestates.TurnPhase;
 import com.github.fburato.justone.dtos.gamestates.TurnPlayerDTO;
-import com.github.fburato.justone.dtos.gamestates.TurnRole;
 import com.github.fburato.justone.dtos.gamestates.WordsDTO;
+import com.github.fburato.justone.model.GameStatus;
+import com.github.fburato.justone.model.PlayerRole;
+import com.github.fburato.justone.model.TurnPhase;
+import com.github.fburato.justone.model.TurnRole;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.commons.lang3.RandomUtils.nextInt;
 
@@ -36,15 +34,14 @@ public final class RandomUtils {
     }
 
     public static GameStateSummaryDTO randomGameStateSummaryDTO() {
-        return ImmutableGameStateSummaryDTO.builder()
-                .id(randomString())
-                .status(randomEnum(GameStatus.class))
-                .players(List.of(
+        return new GameStateSummaryDTO(
+                randomString(),
+                randomEnum(GameStatus.class),
+                List.of(
                         randomPlayerDto(),
                         randomPlayerDto()
-                ))
-                .words(new WordsDTO(nextInt(0, 40), nextInt(0, 40), nextInt(0, 40)))
-                .build();
+                ),
+                new WordsDTO(nextInt(0, 40), nextInt(0, 40), nextInt(0, 40)));
     }
 
     public static PlayerWordDTO randomPlayerWordDTO() {
@@ -56,40 +53,39 @@ public final class RandomUtils {
     }
 
     public static TurnDTO randomTurnDTO() {
-        return ImmutableTurnDTO.builder()
-                .selectedWord(randomString())
-                .phase(randomEnum(TurnPhase.class))
-                .playerSelections(List.of(
+        return new TurnDTO(
+                randomString(),
+                randomEnum(TurnPhase.class),
+                List.of(
                         randomPlayerWordDTO(),
                         randomPlayerWordDTO()
-                ))
-                .wordsToFilter(List.of(randomString(), randomString()))
-                .wordsToRemove(List.of(
+                ),
+                List.of(randomString(), randomString()),
+                List.of(
                         randomPlayerWordDTO(),
                         randomPlayerWordDTO()
-                ))
-                .wordGuessed(randomPlayerWordDTO())
-                .players(List.of(
+                ),
+                Optional.of(randomPlayerWordDTO()),
+                List.of(
                         randomTurnPlayerDTO(),
                         randomTurnPlayerDTO()
-                )).build();
+                ));
     }
 
     public static GameStateDTO randomGameStateDTO() {
-        return ImmutableGameStateDTO.builder()
-                .id(randomString())
-                .status(randomEnum(GameStatus.class))
-                .players(List.of(
+        return new GameStateDTO(
+                randomString(),
+                randomEnum(GameStatus.class),
+                List.of(
                         randomPlayerDto(),
                         randomPlayerDto()
-                ))
-                .turns(List.of(
+                ),
+                List.of(
                         randomTurnDTO(),
                         randomTurnDTO()
-                ))
-                .wordsToGuess(List.of(randomString(), randomString()))
-                .currentTurn(nextInt(0, 30))
-                .totalTurns(nextInt(0, 40))
-                .build();
+                ),
+                List.of(randomString(), randomString()),
+                nextInt(0, 30),
+                nextInt(0, 40));
     }
 }

@@ -1,20 +1,17 @@
 package com.github.fburato.justone.dtos.gamestates;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.immutables.value.Value;
+import com.github.fburato.justone.model.GameStatus;
 
 import java.util.List;
 
-@Value.Immutable
-@JsonSerialize(as = ImmutableGameStateSummaryDTO.class)
-@JsonDeserialize(as = ImmutableGameStateSummaryDTO.class)
-public interface GameStateSummaryDTO {
-    String id();
+public record GameStateSummaryDTO(
+        String id,
 
-    GameStatus status();
+        GameStatus status,
 
-    List<PlayerDTO> players();
+        List<PlayerDTO> players,
 
-    WordsDTO words();
+        WordsDTO words
+) {
+
 }
