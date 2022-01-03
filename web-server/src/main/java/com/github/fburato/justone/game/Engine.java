@@ -33,7 +33,9 @@ import static com.github.fburato.justone.utils.StreamUtils.append;
 
 enum EngineStateType {
     INIT,
+    SELECTION,
     KICK,
+    INVALID_CURRENT_TURN,
     UNKNOWN
 }
 
@@ -48,7 +50,10 @@ public class Engine {
     private final ActionCompiler actionCompiler;
     private final Map<EngineStateType, EngineState> engineStateRegistry = Map.of(
             EngineStateType.INIT, new InitState(),
-            EngineStateType.KICK, new KickState()
+            EngineStateType.KICK, new KickState(),
+            EngineStateType.SELECTION, new SelectionState(),
+            EngineStateType.INVALID_CURRENT_TURN,
+            (gs, ac) -> Try.failure(new InvalidStateException(ErrorCode.INVALID_CURRENT_TURN))
     );
 
     public Engine(ActionCompiler actionCompiler) {
@@ -123,10 +128,6 @@ public class Engine {
                                                                .execute(gameState, action);
                                  }
                                  final var currentStateType = calculateCurrentState(gameState);
-                                 if (gameState.currentTurn() < 0 || currentStateType != EngineStateType.INIT && gameState.currentTurn() >= gameState.turns()
-                                                                                                                                                    .size()) {
-                                     return Try.failure(new InvalidStateException(ErrorCode.INVALID_CURRENT_TURN));
-                                 }
                                  final var engineState = engineStateRegistry.getOrDefault(currentStateType,
                                                                                           UNKOWN_STATE);
                                  return engineState.execute(gameState, action);
@@ -136,6 +137,10 @@ public class Engine {
     private EngineStateType calculateCurrentState(GameState gameState) {
         if (gameState.currentTurn() == 0 && gameState.turns().isEmpty()) {
             return EngineStateType.INIT;
+        } else if (gameState.currentTurn() < 0 || gameState.currentTurn() >= gameState.turns().size()) {
+            return EngineStateType.INVALID_CURRENT_TURN;
+        } else if (gameState.turns().get(gameState.currentTurn()).phase() == TurnPhase.SELECTION) {
+            return EngineStateType.SELECTION;
         } else {
             return EngineStateType.UNKNOWN;
         }
