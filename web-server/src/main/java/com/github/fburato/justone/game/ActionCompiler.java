@@ -19,7 +19,7 @@ public interface ActionCompiler {
                 errors.add(ErrorCode.PAYLOAD_TYPE_MISMATCH);
             }
             switch (action.playerAction()) {
-                case PROCEED, CANCEL_GAME, CANCEL_PROVIDED_HINT, CANCEL_REMOVED_HINT -> {
+                case PROCEED, CANCEL_GAME, CANCEL_PROVIDED_HINT -> {
                     if (action.payloadType() != Void.class) {
                         errors.add(ErrorCode.INVALID_PAYLOAD);
                     }

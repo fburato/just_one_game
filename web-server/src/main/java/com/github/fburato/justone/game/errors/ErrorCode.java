@@ -14,6 +14,7 @@ public enum ErrorCode {
 
     UNRECOGNISED_STATE(500_001),
     INVALID_CURRENT_TURN(500_002),
+    UNEXPECTED_TURN_PHASE(500_003),
     UNKNOWN(999_999);
 
     private final int code;

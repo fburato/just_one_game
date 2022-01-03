@@ -39,6 +39,14 @@ class EngineTestUtils {
         return new Action<>(executor, TurnAction.CANCEL_PROVIDED_HINT, Void.class, null);
     }
 
+    static Action<String> removeProvided(String executor, String provided) {
+        return new Action<>(executor, TurnAction.REMOVE_HINT, String.class, provided);
+    }
+
+    static Action<String> cancelRemoval(String executor, String removed) {
+        return new Action<>(executor, TurnAction.CANCEL_REMOVED_HINT, String.class, removed);
+    }
+
     static String extractGuesser(Turn turn) {
         return extractOneRole(turn, TurnRole.GUESSER);
     }

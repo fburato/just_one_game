@@ -2,6 +2,7 @@ package com.github.fburato.justone.game;
 
 import com.github.fburato.justone.game.errors.ErrorCode;
 import com.github.fburato.justone.game.errors.IllegalActionException;
+import com.github.fburato.justone.game.errors.InvalidStateException;
 import com.github.fburato.justone.model.Action;
 import com.github.fburato.justone.model.GameState;
 import com.github.fburato.justone.model.PlayerWord;
@@ -49,7 +50,7 @@ class SelectionTest {
     }
 
     @Test
-    @DisplayName("should fail with ILLEGAL_ACTION if current turn is not in selection phase")
+    @DisplayName("should fail with ILLEGAL_STATE if current turn is not in selection phase")
     void failOnNotSelection() {
         final var gameStateInWrongPhase = gameStateBuilder(stateWithSelection)
                 .with(gsb -> {
@@ -60,8 +61,8 @@ class SelectionTest {
                 }).build();
         richStateOf(gameStateInWrongPhase)
                 .execute(hint(host, randomString()))
-                .isInvalidInstanceOfSatisfying(IllegalActionException.class, iae ->
-                        assertThat(iae.errorCodes()).containsExactly(ErrorCode.ILLEGAL_ACTION));
+                .isInvalidInstanceOfSatisfying(InvalidStateException.class, iae ->
+                        assertThat(iae.errorCodes()).containsExactly(ErrorCode.UNEXPECTED_TURN_PHASE));
 
     }
 
