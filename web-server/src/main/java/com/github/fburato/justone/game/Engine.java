@@ -38,6 +38,7 @@ enum EngineStateType {
     GUESS,
     KICK,
     INVALID_CURRENT_TURN,
+    CONCLUSION,
     UNKNOWN
 }
 
@@ -57,7 +58,8 @@ public class Engine {
             EngineStateType.INVALID_CURRENT_TURN,
             (gs, ac) -> Try.failure(new InvalidStateException(ErrorCode.INVALID_CURRENT_TURN)),
             EngineStateType.REMOVAL, new RemovalState(),
-            EngineStateType.GUESS, new GuessingState()
+            EngineStateType.GUESS, new GuessingState(),
+            EngineStateType.CONCLUSION, new ConclusionState()
     );
 
     public Engine(ActionCompiler actionCompiler) {
@@ -149,6 +151,8 @@ public class Engine {
             return EngineStateType.REMOVAL;
         } else if (gameState.turns().get(gameState.currentTurn()).phase() == TurnPhase.GUESSING) {
             return EngineStateType.GUESS;
+        } else if (gameState.turns().get(gameState.currentTurn()).phase() == TurnPhase.CONCLUSION) {
+            return EngineStateType.CONCLUSION;
         } else {
             return EngineStateType.UNKNOWN;
         }
@@ -555,4 +559,83 @@ class GuessingState implements EngineState {
                 gameState.currentTurn()
         ));
     }
+}
+
+class ConclusionState implements EngineState {
+
+    @Override
+    public Try<GameState> execute(GameState gameState, Action<?> action) {
+        final var turn = gameState.turns().get(gameState.currentTurn());
+        if (turn.phase() != TurnPhase.CONCLUSION) {
+            return Try.failure(new InvalidStateException(ErrorCode.UNEXPECTED_TURN_PHASE));
+        }
+        if (action.playerAction() != TurnAction.PROCEED) {
+            return Try.failure(new IllegalActionException(ErrorCode.ILLEGAL_ACTION));
+        }
+        if (!hostOrRoot(action.playerId(), gameState)) {
+            return Try.failure(new IllegalActionException(ErrorCode.UNAUTHORISED_ACTION));
+        }
+        if (gameState.currentTurn() < gameState.wordsToGuess().size() - 1) {
+            return handleNonTerminal(gameState);
+        }
+        return handleTerminal(gameState);
+    }
+
+    private Try<GameState> handleNonTerminal(GameState gameState) {
+        final var turns = new ArrayList<>(gameState.turns());
+        final var currentTurn = gameState.currentTurn();
+        final var previousGuesser = gameState.turns().get(currentTurn)
+                                             .players().stream()
+                                             .filter(tp -> tp.roles().contains(TurnRole.GUESSER))
+                                             .findFirst()
+                                             .orElseThrow();
+        final var previousGuesserIndexInPlayers = IntStream.range(0, gameState.players().size())
+                                                           .filter(i -> gameState.players().get(i).id()
+                                                                                 .equals(previousGuesser.playerId()))
+                                                           .findFirst()
+                                                           .orElseThrow();
+        final var nextGuesserInPlayers = (previousGuesserIndexInPlayers + 1) % gameState.players().size();
+        final var nextRemoverInPlayers = (nextGuesserInPlayers + 1) % gameState.players().size();
+        final var players = IntStream.range(0, gameState.players().size())
+                                     .mapToObj(i -> {
+                                         if (i == nextGuesserInPlayers) {
+                                             return new TurnPlayer(gameState.players().get(i).id(),
+                                                                   List.of(TurnRole.GUESSER));
+                                         } else if (i == nextRemoverInPlayers) {
+                                             return new TurnPlayer(gameState.players().get(i).id(),
+                                                                   List.of(TurnRole.REMOVER, TurnRole.PROVIDER));
+                                         } else {
+                                             return new TurnPlayer(gameState.players().get(i).id(),
+                                                                   List.of(TurnRole.PROVIDER));
+                                         }
+                                     }).toList();
+        turns.add(new Turn(
+                TurnPhase.SELECTION,
+                List.of(),
+                List.of(),
+                List.of(),
+                Optional.empty(),
+                players
+        ));
+        return Try.success(new GameState(
+                gameState.id(),
+                GameStatus.IN_PROGRESS,
+                gameState.players(),
+                turns,
+                gameState.wordsToGuess(),
+                currentTurn + 1
+        ));
+    }
+
+    private Try<GameState> handleTerminal(GameState gameState) {
+        return Try.success(new GameState(
+                gameState.id(),
+                GameStatus.CONCLUDED,
+                gameState.players(),
+                gameState.turns(),
+                gameState.wordsToGuess(),
+                gameState.currentTurn() + 1
+        ));
+    }
+
 }

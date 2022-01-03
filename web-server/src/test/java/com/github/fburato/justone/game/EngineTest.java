@@ -202,6 +202,61 @@ public class EngineTest {
                 .isValid();
     }
 
+    @Test
+    @DisplayName("should allow to proceed after conclusion for non terminal")
+    void proceedOnConclusionForNonTerminal() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host))
+                                        .isValid();
+        final var hints = List.of(randomString(), randomString());
+        final var providers = extractProviders(firstTurnState.gameState().get().turns().get(0));
+        final var remover = extractRemover(firstTurnState.gameState().get().turns().get(0));
+        final var guesser = extractGuesser(firstTurnState.gameState().get().turns().get(0));
+        firstTurnState
+                .execute(hint(providers.get(0), hints.get(0)))
+                .execute(hint(providers.get(1), hints.get(1)))
+                .execute(removeProvided(remover, hints.get(0)))
+                .execute(proceed(remover))
+                .execute(guessWord(guesser, randomString()))
+                .execute(proceed(host))
+                .isValid();
+    }
+
+    @Test
+    @DisplayName("should conclude game after all words guessed")
+    void concludeGame() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host))
+                                        .isValid();
+        final var hints = List.of(randomString(), randomString());
+        final var providers = extractProviders(firstTurnState.gameState().get().turns().get(0));
+        final var remover = extractRemover(firstTurnState.gameState().get().turns().get(0));
+        final var guesser = extractGuesser(firstTurnState.gameState().get().turns().get(0));
+        final var secondTurnState = firstTurnState
+                .execute(hint(providers.get(0), hints.get(0)))
+                .execute(hint(providers.get(1), hints.get(1)))
+                .execute(removeProvided(remover, hints.get(0)))
+                .execute(proceed(remover))
+                .execute(guessWord(guesser, randomString()))
+                .execute(proceed(host))
+                .isValid();
+
+        final var providers2 = extractProviders(secondTurnState.gameState().get().turns().get(1));
+        final var remover2 = extractRemover(secondTurnState.gameState().get().turns().get(1));
+        final var guesser2 = extractGuesser(secondTurnState.gameState().get().turns().get(1));
+
+        secondTurnState.execute(hint(providers2.get(0), hints.get(0)))
+                       .execute(hint(providers2.get(1), hints.get(1)))
+                       .execute(removeProvided(remover2, hints.get(0)))
+                       .execute(proceed(remover2))
+                       .execute(guessWord(guesser2, randomString()))
+                       .execute(proceed(host))
+                       .isValidSatisfying(gameState ->
+                                                  assertThat(gameState.status()).isEqualTo(GameStatus.CONCLUDED));
+    }
+
     @Nested
     @DisplayName("on init")
     class InitTests {
