@@ -34,6 +34,7 @@ import static com.github.fburato.justone.utils.StreamUtils.append;
 enum EngineStateType {
     INIT,
     SELECTION,
+    REMOVAL,
     KICK,
     INVALID_CURRENT_TURN,
     UNKNOWN
@@ -46,14 +47,15 @@ interface EngineState {
 public class Engine {
 
     public static final String ROOT = "root";
-    private static final EngineState UNKOWN_STATE = new UnknownState();
+    private static final EngineState UNKNOWN_STATE = new UnknownState();
     private final ActionCompiler actionCompiler;
     private final Map<EngineStateType, EngineState> engineStateRegistry = Map.of(
             EngineStateType.INIT, new InitState(),
             EngineStateType.KICK, new KickState(),
             EngineStateType.SELECTION, new SelectionState(),
             EngineStateType.INVALID_CURRENT_TURN,
-            (gs, ac) -> Try.failure(new InvalidStateException(ErrorCode.INVALID_CURRENT_TURN))
+            (gs, ac) -> Try.failure(new InvalidStateException(ErrorCode.INVALID_CURRENT_TURN)),
+            EngineStateType.REMOVAL, new RemovalState()
     );
 
     public Engine(ActionCompiler actionCompiler) {
@@ -129,7 +131,7 @@ public class Engine {
                                  }
                                  final var currentStateType = calculateCurrentState(gameState);
                                  final var engineState = engineStateRegistry.getOrDefault(currentStateType,
-                                                                                          UNKOWN_STATE);
+                                                                                          UNKNOWN_STATE);
                                  return engineState.execute(gameState, action);
                              });
     }
@@ -141,6 +143,8 @@ public class Engine {
             return EngineStateType.INVALID_CURRENT_TURN;
         } else if (gameState.turns().get(gameState.currentTurn()).phase() == TurnPhase.SELECTION) {
             return EngineStateType.SELECTION;
+        } else if (gameState.turns().get(gameState.currentTurn()).phase() == TurnPhase.REMOVAL) {
+            return EngineStateType.REMOVAL;
         } else {
             return EngineStateType.UNKNOWN;
         }
@@ -394,7 +398,7 @@ class SelectionState implements EngineState {
     }
 }
 
-class RemovalStateEngine implements EngineState {
+class RemovalState implements EngineState {
 
     @Override
     @SuppressWarnings("unchecked")

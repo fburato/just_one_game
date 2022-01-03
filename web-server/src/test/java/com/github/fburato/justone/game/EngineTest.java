@@ -27,9 +27,11 @@ import static com.github.fburato.justone.game.EngineTestUtils.RichState;
 import static com.github.fburato.justone.game.EngineTestUtils.admit;
 import static com.github.fburato.justone.game.EngineTestUtils.cancel;
 import static com.github.fburato.justone.game.EngineTestUtils.extractProviders;
+import static com.github.fburato.justone.game.EngineTestUtils.extractRemover;
 import static com.github.fburato.justone.game.EngineTestUtils.hint;
 import static com.github.fburato.justone.game.EngineTestUtils.kick;
 import static com.github.fburato.justone.game.EngineTestUtils.proceed;
+import static com.github.fburato.justone.game.EngineTestUtils.removeProvided;
 import static com.github.fburato.justone.model.Builders.gameStateBuilder;
 import static com.github.fburato.justone.utils.StreamUtils.append;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -159,6 +161,23 @@ public class EngineTest {
         final var providers = extractProviders(firstTurnState.gameState().get().turns().get(0));
         firstTurnState.execute(hint(providers.get(0), randomString()))
                       .isValid();
+    }
+
+    @Test
+    @DisplayName("should allow to remove hints after selection")
+    void removeHints() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host))
+                                        .isValid();
+        final var hints = List.of(randomString(), randomString());
+        final var providers = extractProviders(firstTurnState.gameState().get().turns().get(0));
+        final var remover = extractRemover(firstTurnState.gameState().get().turns().get(0));
+        firstTurnState
+                .execute(hint(providers.get(0), hints.get(0)))
+                .execute(hint(providers.get(1), hints.get(1)))
+                .execute(removeProvided(remover, hints.get(0)))
+                .isValid();
     }
 
     @Nested

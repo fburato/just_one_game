@@ -52,7 +52,7 @@ class RemovalTest {
                 }).build());
             }).build();
 
-    private final RemovalStateEngine testee = new RemovalStateEngine();
+    private final RemovalState testee = new RemovalState();
 
     private EngineTestUtils.RichState richStateOf(GameState gameState) {
         return new EngineTestUtils.RichState(Try.success(gameState), testee);
