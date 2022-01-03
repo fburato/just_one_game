@@ -55,9 +55,7 @@ class SelectionTest {
         final var gameStateInWrongPhase = gameStateBuilder(stateWithSelection)
                 .with(gsb -> {
                     gsb.turns = new ArrayList<>(stateWithSelection.turns());
-                    gsb.turns.set(1, turnBuilder(stateWithSelection.turns().get(0)).with(tb -> {
-                        tb.phase = TurnPhase.CONCLUSION;
-                    }).build());
+                    gsb.turns.set(1, turnBuilder(stateWithSelection.turns().get(0)).with(tb -> tb.phase = TurnPhase.CONCLUSION).build());
                 }).build();
         richStateOf(gameStateInWrongPhase)
                 .execute(hint(host, randomString()))
@@ -250,6 +248,59 @@ class SelectionTest {
                     .isValidSatisfying(gameState -> {
                         final var currentTurn = gameState.turns().get(gameState.currentTurn());
                         assertThat(currentTurn.hintsToFilter()).containsExactlyInAnyOrder(hint1, hint2);
+                    });
+        }
+
+
+        @Test
+        @DisplayName("should not filter the same repeated hint twice")
+        void addOnlyOne() {
+            final var provider1 = stateWithSelection.turns().get(1).players().stream()
+                                                    .filter(tp -> tp.roles().contains(TurnRole.PROVIDER))
+                                                    .findFirst().orElseThrow();
+            final var provider2 = stateWithSelection.turns().get(1).players().stream()
+                                                    .filter(tp -> tp.roles()
+                                                                    .contains(TurnRole.PROVIDER) && !tp.playerId()
+                                                                                                       .equals(provider1.playerId()))
+                                                    .findFirst().orElseThrow();
+            final var hint1 = "foo1";
+            final var hint2 = "foo1";
+            richStateOf(stateWithSelection)
+                    .execute(hint(provider1.playerId(), hint1))
+                    .isValidSatisfying(gameState -> {
+                        final var currentTurn = gameState.turns().get(gameState.currentTurn());
+                        assertThat(currentTurn.hintsToFilter()).isEmpty();
+                    })
+                    .execute(hint(provider2.playerId(), hint2))
+                    .isValidSatisfying(gameState -> {
+                        final var currentTurn = gameState.turns().get(gameState.currentTurn());
+                        assertThat(currentTurn.hintsToFilter()).containsExactly(hint1);
+                    });
+        }
+
+        @Test
+        @DisplayName("should not set in the filter the removed words that do not repeat")
+        void noRemovalOfDifferentIdentical() {
+            final var provider1 = stateWithSelection.turns().get(1).players().stream()
+                                                    .filter(tp -> tp.roles().contains(TurnRole.PROVIDER))
+                                                    .findFirst().orElseThrow();
+            final var provider2 = stateWithSelection.turns().get(1).players().stream()
+                                                    .filter(tp -> tp.roles()
+                                                                    .contains(TurnRole.PROVIDER) && !tp.playerId()
+                                                                                                       .equals(provider1.playerId()))
+                                                    .findFirst().orElseThrow();
+            final var hint1 = "foo1";
+            final var hint2 = "foo2";
+            richStateOf(stateWithSelection)
+                    .execute(hint(provider1.playerId(), hint1))
+                    .isValidSatisfying(gameState -> {
+                        final var currentTurn = gameState.turns().get(gameState.currentTurn());
+                        assertThat(currentTurn.hintsToFilter()).isEmpty();
+                    })
+                    .execute(hint(provider2.playerId(), hint2))
+                    .isValidSatisfying(gameState -> {
+                        final var currentTurn = gameState.turns().get(gameState.currentTurn());
+                        assertThat(currentTurn.hintsToFilter()).isEmpty();
                     });
         }
     }

@@ -20,6 +20,7 @@ import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -370,12 +371,18 @@ class SelectionState implements EngineState {
                             oldTurn.wordGuessed(), oldTurn.players());
         }
 
-        final Set<String> strippedCaseInsensitiveHints = hintsOfProviders.values().stream()
-                                                                         .map(SelectionState::normalise)
-                                                                         .collect(Collectors.toSet());
+        final Map<String, Integer> countOfDuplicates = new HashMap<>();
+        hintsOfProviders.values().forEach(hint -> {
+            final var normalised = normalise(hint);
+            final var count = countOfDuplicates.getOrDefault(normalised, 0);
+            countOfDuplicates.put(normalised, count + 1);
+        });
         final List<String> toExclude = hintsOfProviders.values().stream()
-                                                       .filter(hint -> strippedCaseInsensitiveHints.contains(
-                                                               normalise(hint))).toList();
+                                                       .filter(hint -> {
+                                                           final var normalised = normalise(hint);
+                                                           return countOfDuplicates.get(normalised) > 1;
+                                                       }).distinct()
+                                                       .toList();
         return new Turn(TurnPhase.REMOVAL, providedHints, toExclude, oldTurn.hintsToRemove(), oldTurn.wordGuessed(),
                         oldTurn.players());
     }
@@ -458,17 +465,15 @@ class RemovalState implements EngineState {
     private Try<GameState> handleRemoveHint(GameState gameState, String remover, String toRemove) {
         final var turn = gameState.turns().get(gameState.currentTurn());
         final var turns = new ArrayList<>(gameState.turns());
-        final List<PlayerWord> hintsToRemove;
+        final List<PlayerWord> hintsToRemove = new ArrayList<>(turn.hintsToRemove());
         if (turn.providedHints().stream()
                 .map(PlayerWord::word)
                 .collect(Collectors.toSet()).contains(toRemove) &&
-                !turn.hintsToRemove().stream()
-                     .map(PlayerWord::word)
-                     .collect(Collectors.toSet()).contains(toRemove) &&
+                !hintsToRemove.stream()
+                              .map(PlayerWord::word)
+                              .collect(Collectors.toSet()).contains(toRemove) &&
                 !turn.hintsToFilter().contains(toRemove)) {
-            hintsToRemove = List.of(new PlayerWord(remover, toRemove));
-        } else {
-            hintsToRemove = turn.hintsToRemove();
+            hintsToRemove.add(new PlayerWord(remover, toRemove));
         }
         turns.set(gameState.currentTurn(),
                   new Turn(turn.phase(),

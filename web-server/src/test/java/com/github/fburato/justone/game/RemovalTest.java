@@ -33,7 +33,7 @@ class RemovalTest {
     private final String host = randomString();
     private final List<String> players = List.of(randomString(), randomString());
     private final List<String> wordsToGuess = List.of(randomString(), randomString());
-    private final List<String> providedHints = List.of(randomString(), randomString());
+    private final List<String> providedHints = List.of(randomString(), randomString(), randomString());
     private final Engine engine = new Engine(Try::success);
     private final EngineTestUtils.RichState initialState = new EngineTestUtils.RichState(
             engine.init(id, host, players, wordsToGuess), engine::execute)
@@ -170,6 +170,24 @@ class RemovalTest {
                     .isValidSatisfying(gameState -> {
                         final var turn = gameState.turns().get(gameState.currentTurn());
                         assertThat(turn.hintsToRemove()).containsExactly(new PlayerWord(remover, providedHints.get(1)));
+                    });
+        }
+
+        @Test
+        @DisplayName("should mark as removed multiple hint provided that are removed")
+        void removeMultipleProvidedTest() {
+            richStateOf(stateWithRemoval)
+                    .execute(removeProvided(remover, providedHints.get(1)))
+                    .isValidSatisfying(gameState -> {
+                        final var turn = gameState.turns().get(gameState.currentTurn());
+                        assertThat(turn.hintsToRemove()).containsExactly(new PlayerWord(remover, providedHints.get(1)));
+                    })
+                    .execute(removeProvided(remover, providedHints.get(2)))
+                    .isValidSatisfying(gameState -> {
+                        final var turn = gameState.turns().get(gameState.currentTurn());
+                        assertThat(turn.hintsToRemove()).containsExactlyInAnyOrder(
+                                new PlayerWord(remover, providedHints.get(2)),
+                                new PlayerWord(remover, providedHints.get(1)));
                     });
         }
 

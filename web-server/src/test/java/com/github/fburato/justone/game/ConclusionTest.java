@@ -163,7 +163,7 @@ class ConclusionTest {
                     .isValidSatisfying(gameState -> {
                         final var turn = gameState.turns().get(gameState.currentTurn());
                         final var previousGuesser = extractGuesser(gameState.turns().get(gameState.currentTurn() - 1));
-                        final var previousGuesserIndexAmongAllPlayers = IntStream.range(0, gameState.currentTurn())
+                        final var previousGuesserIndexAmongAllPlayers = IntStream.range(0, gameState.players().size())
                                                                                  .filter(i -> gameState.players().get(i)
                                                                                                        .id()
                                                                                                        .equals(previousGuesser))
