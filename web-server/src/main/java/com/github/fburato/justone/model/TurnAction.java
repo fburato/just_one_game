@@ -8,7 +8,6 @@ public enum TurnAction {
     CANCEL_REMOVED_HINT,
     ADMIT_PLAYER,
     KICK_PLAYER,
-    REMOVE_PLAYER,
     PROCEED,
     CANCEL_GAME
 }

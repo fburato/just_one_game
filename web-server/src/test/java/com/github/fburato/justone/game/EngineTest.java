@@ -1,7 +1,7 @@
 package com.github.fburato.justone.game;
 
 import com.github.fburato.justone.game.errors.ErrorCode;
-import com.github.fburato.justone.game.errors.IllegalActionException;
+import com.github.fburato.justone.game.errors.InvalidActionException;
 import com.github.fburato.justone.game.errors.InvalidStateException;
 import com.github.fburato.justone.model.Action;
 import com.github.fburato.justone.model.GameState;
@@ -10,24 +10,25 @@ import com.github.fburato.justone.model.Player;
 import com.github.fburato.justone.model.PlayerRole;
 import com.github.fburato.justone.model.Turn;
 import com.github.fburato.justone.model.TurnAction;
-import com.github.fburato.justone.model.TurnPhase;
-import com.github.fburato.justone.model.TurnPlayer;
-import com.github.fburato.justone.model.TurnRole;
 import io.vavr.control.Try;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.github.fburato.justone.RandomUtils.randomString;
+import static com.github.fburato.justone.game.EngineTestUtils.RichState;
+import static com.github.fburato.justone.game.EngineTestUtils.admit;
+import static com.github.fburato.justone.game.EngineTestUtils.cancel;
+import static com.github.fburato.justone.game.EngineTestUtils.kick;
+import static com.github.fburato.justone.game.EngineTestUtils.proceed;
+import static com.github.fburato.justone.utils.StreamUtils.append;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -40,16 +41,13 @@ public class EngineTest {
     private final String host = randomString();
     private final List<String> players = List.of(randomString(), randomString());
     private final List<String> wordsToGuess = List.of(randomString(), randomString());
-    private final List<String> allPlayers = Stream.concat(Stream.of(host), players.stream()).toList();
+
 
     private final ActionCompiler actionCompiler = mock(ActionCompiler.class);
     private final Engine testee = new Engine(actionCompiler);
-    private final Action<Void> hostProceed = new Action<>(host, TurnAction.PROCEED, Void.class, null);
-    private final Action<Void> rootProceed = new Action<>("root", TurnAction.PROCEED, Void.class, null);
-    private final Action<Void> hostCancel = new Action<>(host, TurnAction.CANCEL_GAME, Void.class, null);
-    private final Action<Void> rootCancel = new Action<>("root", TurnAction.CANCEL_GAME, Void.class, null);
-    private final Action<Void> invalidProceed = new Action<>(randomString(), TurnAction.PROCEED, Void.class, null);
-    private final Action<Void> nonHostProceed = new Action<>(players.get(0), TurnAction.PROCEED, Void.class, null);
+
+    private final RichState state = new RichState(testee.init(id, host, players, wordsToGuess),
+                                                  testee::execute).isValid();
 
     @Test
     @DisplayName("should validate the action with the validator")
@@ -77,30 +75,47 @@ public class EngineTest {
         assertThat(tryState.getCause()).isEqualTo(exception);
     }
 
-    public String extractGuesser(Turn turn) {
-        return extractOneRole(turn, TurnRole.GUESSER);
+    @Test
+    @DisplayName("should fail with UNRECOGNISED_STATE if state is not recognised")
+    void unrecognisedState() {
+        when(actionCompiler.compile(any())).then(a -> Try.success(a.getArgument(0, Action.class)));
+        final var initState = testee.init(id, host, players, wordsToGuess).get();
+        final var invalidState = new GameState(
+                initState.id(),
+                initState.status(),
+                initState.players(),
+                List.of(new Turn(null, List.of(), List.of(), List.of(), Optional.empty(), List.of())),
+                initState.wordsToGuess(),
+                initState.currentTurn()
+        );
+        new RichState(Try.success(invalidState), testee::execute)
+                .execute(proceed(host))
+                .isInvalidInstanceOfSatisfying(InvalidStateException.class, failure ->
+                        assertThat(failure.errorCodes())
+                                .containsExactly(
+                                        ErrorCode.UNRECOGNISED_STATE));
     }
 
-    public String extractOneRole(Turn turn, TurnRole turnRole) {
-        final var candidates = turn.players().stream()
-                                   .filter(p -> p.roles().contains(turnRole))
-                                   .toList();
-        assertThat(candidates.size()).withFailMessage("expected turn=%s to have one player with role=%s", turn,
-                                                      turnRole)
-                                     .isOne();
-        return candidates.get(0).playerId();
+    void validateAll() {
+        when(actionCompiler.compile(any())).then(a -> Try.success(a.getArgument(0, Action.class)));
     }
 
-    public List<String> extractProviders(Turn turn) {
-        return turn.players().stream()
-                   .filter(p -> p.roles().contains(TurnRole.PROVIDER))
-                   .map(TurnPlayer::playerId)
-                   .toList();
+    @Test
+    @DisplayName("on cancel, should mark the game as cancelled")
+    void cancelGameCancelled() {
+        validateAll();
+        final var initialState = state.gameState().get();
 
-    }
-
-    public String extractRemover(Turn turn) {
-        return extractOneRole(turn, TurnRole.REMOVER);
+        state.execute(cancel(host))
+             .isValidSatisfying(gameState ->
+                                        assertThat(gameState).isEqualTo(new GameState(
+                                                initialState.id(),
+                                                GameStatus.CANCELLED,
+                                                initialState.players(),
+                                                initialState.turns(),
+                                                initialState.wordsToGuess(),
+                                                initialState.currentTurn()
+                                        )));
     }
 
     @Nested
@@ -237,203 +252,117 @@ public class EngineTest {
     }
 
     @Nested
-    @DisplayName("on init state")
+    @DisplayName("on any state")
     class InitStateTests {
 
-        private final RichState state = new RichState(testee.init(id, host, players, wordsToGuess), testee).isValid();
-
         @BeforeEach
-        void compilePassThrough() {
-            when(actionCompiler.compile(any())).then(a -> Try.success(a.getArgument(0, Action.class)));
-
-        }
-
-        @Test
-        @DisplayName("should allow to proceed with host")
-        void proceedHost() {
-            state.execute(hostProceed)
-                 .isValid();
-        }
-
-        @Test
-        @DisplayName("should allow to proceed with root")
-        void proceedRoot() {
-            state.execute(rootProceed)
-                 .isValid();
-        }
-
-        @Test
-        @DisplayName("should not allow to proceed with non host")
-        void proceedNonHost() {
-            state.execute(nonHostProceed)
-                 .isFailed();
+        void setUp() {
+            validateAll();
         }
 
         @Test
         @DisplayName("should reject action of non player")
         void rejectNonPlayer() {
-            state.execute(invalidProceed)
-                 .isFailed();
-        }
-
-        @Test
-        @DisplayName("on proceed, should initialise turn 0 with SELECTION phase")
-        void turn0WithSelection() {
-            state.execute(hostProceed)
-                 .isValidSatisfying(gameState -> {
-                     assertThat(gameState.turns().size()).isOne();
-                     final var turn0 = gameState.turns().get(0);
-                     assertThat(turn0.phase()).isEqualTo(TurnPhase.SELECTION);
-                 });
-        }
-
-        @Test
-        @DisplayName("on proceed, should have all words empty")
-        void turn0WithAllEmpty() {
-            state.execute(hostProceed)
-                 .isValidSatisfying(gameState -> {
-                     final var turn0 = gameState.turns().get(0);
-                     assertThat(turn0.providedHints()).isEmpty();
-                     assertThat(turn0.hintsToFilter()).isEmpty();
-                     assertThat(turn0.hintsToRemove()).isEmpty();
-                     assertThat(turn0.wordGuessed()).isEmpty();
-                 });
-        }
-
-        @Test
-        @DisplayName("on proceed, should select only one of the existing players as guesser")
-        void turn0WithOneGuesser() {
-            state.execute(hostProceed)
-                 .isValidSatisfying(gameState -> {
-                     final var turn0 = gameState.turns().get(0);
-                     final var guesser = extractGuesser(turn0);
-
-                     assertThat(allPlayers).contains(guesser);
-                 });
-        }
-
-        @Test
-        @DisplayName("on proceed, should select only one of the existing players as REMOVER")
-        void turn0WithOneRemover() {
-            state.execute(hostProceed)
-                 .isValidSatisfying(gameState -> {
-                     final var turn0 = gameState.turns().get(0);
-                     final var remover = extractRemover(turn0);
-
-                     assertThat(allPlayers).contains(remover);
-                 });
-        }
-
-        @Test
-        @DisplayName("on proceed, should not select the same player as guesser and remover")
-        void turn0DifferentGuesserRemover() {
-            state.execute(hostProceed)
-                 .isValidSatisfying(gameState -> {
-                     final var turn0 = gameState.turns().get(0);
-                     final var guesser = extractGuesser(turn0);
-                     final var remover = extractRemover(turn0);
-
-                     assertThat(guesser).isNotEqualTo(remover);
-                 });
-        }
-
-        @Test
-        @DisplayName("on proceed, should mark every non guesser as a provider")
-        void turn0NonIntersectProvidersAndGuesser() {
-            state.execute(hostProceed)
-                 .isValidSatisfying(gameState -> {
-                     final var turn0 = gameState.turns().get(0);
-                     final var guesser = extractGuesser(turn0);
-                     final var providers = extractProviders(turn0);
-
-                     assertThat(providers.contains(guesser)).isFalse();
-                     assertThat(allPlayers).containsExactlyInAnyOrderElementsOf(Stream.concat(
-                             Stream.of(guesser),
-                             providers.stream()
-                     ).toList());
-                 });
+            state.execute(proceed(randomString()))
+                 .isInvalid();
         }
 
         @Test
         @DisplayName("should allow to cancel the game as host")
         void cancelGameHost() {
-            state.execute(hostCancel)
+            state.execute(cancel(host))
                  .isValid();
         }
 
         @Test
         @DisplayName("should allow to cancel the game as root")
         void cancelGameRoot() {
-            state.execute(rootCancel)
+            state.execute(cancel("root"))
                  .isValid();
         }
 
         @Test
         @DisplayName("should not allow to cancel the game as another player")
         void noCancelGameAsNonHost() {
-            state.execute(new Action<>(players.get(0), TurnAction.CANCEL_GAME, Void.class, null))
-                 .isFailed();
+            state.execute(cancel(players.get(0)))
+                 .isInvalid();
         }
 
         @Test
-        @DisplayName("on cancel, should mark the game as cancelled")
-        void cancelGameCancelled() {
-            state.execute(hostCancel)
-                 .isValidSatisfying(gameState -> {
-                     assertThat(gameState.status()).isEqualTo(GameStatus.CANCELLED);
-                     assertThat(gameState.turns()).isEmpty();
-                 });
+        @DisplayName("should allow to kick player as host")
+        void kickAsHost() {
+            state.execute(kick(host, randomString()))
+                 .isValid();
         }
 
-        @ParameterizedTest
-        @EnumSource(value = TurnAction.class, mode = EnumSource.Mode.EXCLUDE, names = {"PROCEED", "CANCEL_GAME"})
-        @DisplayName("should reject actions not allowed")
-        void rejectActions(TurnAction turnAction) {
-            final var action = new Action<>(host, turnAction, String.class, randomString());
-            state.execute(action)
-                 .isInvalidSatisfying(failure ->
-                                              assertThat(failure).isInstanceOfSatisfying(IllegalActionException.class,
-                                                                                         iae -> assertThat(
-                                                                                                 iae.errorCodes())
-                                                                                                 .containsExactly(
-                                                                                                         ErrorCode.ILLEGAL_ACTION)));
+        @Test
+        @DisplayName("should allow to admit player as host")
+        void admitAsHost() {
+            state.execute(admit(host, randomString()))
+                 .isValid();
+        }
+
+        @Test
+        @DisplayName("should allow to kick player as root")
+        void kickAsRoot() {
+            state.execute(kick("root", randomString()))
+                 .isValid();
+        }
+
+        @Test
+        @DisplayName("should allow to admit player as root")
+        void admitAsRoot() {
+            state.execute(admit("root", randomString()))
+                 .isValid();
+        }
+
+        @Test
+        @DisplayName("should not allow to kick player as player")
+        void noKickAsPlayer() {
+            state.execute(kick(players.get(0), randomString()))
+                 .isInvalid();
+        }
+
+        @Test
+        @DisplayName("should not allow to admit player as player")
+        void noAdmitAsPlayer() {
+            state.execute(admit(players.get(0), randomString()))
+                 .isInvalid();
         }
     }
-}
 
-class RichState {
-    private final Try<GameState> gameState;
-    private final Engine engine;
+    @Nested
+    @DisplayName("on admit")
+    class AdmitTests {
 
-    public RichState(Try<GameState> gameState, Engine engine) {
-        this.gameState = gameState;
-        this.engine = engine;
-    }
+        @Test
+        @DisplayName("should add the player to the list of players in the game")
+        void appendPlayerOnAdmit() {
+            validateAll();
+            final var stateBeforeAction = state.gameState().get();
+            final var newPlayerId = randomString();
 
-    public RichState isValid() {
-        assertThat(gameState.isFailure()).isFalse();
-        return this;
-    }
+            state.execute(admit(host, newPlayerId))
+                 .isValidSatisfying(gameState ->
+                                            assertThat(gameState).isEqualTo(new GameState(
+                                                    stateBeforeAction.id(),
+                                                    stateBeforeAction.status(),
+                                                    append(stateBeforeAction.players().stream(),
+                                                           new Player(newPlayerId, PlayerRole.PLAYER)).toList(),
+                                                    stateBeforeAction.turns(),
+                                                    stateBeforeAction.wordsToGuess(),
+                                                    stateBeforeAction.currentTurn()
+                                            )));
+        }
 
-    public RichState isFailed() {
-        assertThat(gameState.isFailure()).isTrue();
-        return this;
-    }
+        @Test
+        @DisplayName("should return INVALID_PAYLOAD if playerId already exists")
+        void test() {
+            validateAll();
 
-    public RichState execute(Action<?> action) {
-        final var current = isValid();
-        return new RichState(engine.execute(current.gameState.get(), action), engine);
-    }
-
-    public RichState isValidSatisfying(Consumer<GameState> assertions) {
-        final var state = isValid();
-        assertions.accept(state.gameState.get());
-        return state;
-    }
-
-    public RichState isInvalidSatisfying(Consumer<Throwable> assertions) {
-        final var state = isFailed();
-        assertions.accept(state.gameState.getCause());
-        return state;
+            state.execute(admit(host, players.get(0)))
+                 .isInvalidInstanceOfSatisfying(InvalidActionException.class, failure ->
+                         assertThat(failure.errorCodes()).containsExactly(ErrorCode.ILLEGAL_ACTION));
+        }
     }
 }

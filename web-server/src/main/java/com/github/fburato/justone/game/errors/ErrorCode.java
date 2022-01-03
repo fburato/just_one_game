@@ -10,6 +10,8 @@ public enum ErrorCode {
     NOT_ENOUGH_WORDS(400_006),
 
     ILLEGAL_ACTION(401_001),
+
+    UNRECOGNISED_STATE(500_001),
     UNKNOWN(999_999);
 
     private final int code;

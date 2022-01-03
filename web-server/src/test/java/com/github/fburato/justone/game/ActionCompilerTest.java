@@ -37,7 +37,6 @@ class ActionCompilerTest {
                 stringActionMaker.apply(TurnAction.ADMIT_PLAYER),
                 stringActionMaker.apply(TurnAction.GUESS_WORD),
                 stringActionMaker.apply(TurnAction.KICK_PLAYER),
-                stringActionMaker.apply(TurnAction.REMOVE_PLAYER),
                 Arguments.of(TurnAction.PROCEED, new Action<>(randomString(), TurnAction.PROCEED, Void.class, null)),
                 Arguments.of(TurnAction.CANCEL_GAME,
                              new Action<>(randomString(), TurnAction.CANCEL_GAME, Void.class, null))
