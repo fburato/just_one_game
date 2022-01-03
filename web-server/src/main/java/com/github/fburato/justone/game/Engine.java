@@ -123,6 +123,10 @@ public class Engine {
                                                                .execute(gameState, action);
                                  }
                                  final var currentStateType = calculateCurrentState(gameState);
+                                 if (gameState.currentTurn() < 0 || currentStateType != EngineStateType.INIT && gameState.currentTurn() >= gameState.turns()
+                                                                                                                                                    .size()) {
+                                     return Try.failure(new InvalidStateException(ErrorCode.INVALID_CURRENT_TURN));
+                                 }
                                  final var engineState = engineStateRegistry.getOrDefault(currentStateType,
                                                                                           UNKOWN_STATE);
                                  return engineState.execute(gameState, action);
@@ -283,8 +287,104 @@ class KickState implements EngineState {
 
 class SelectionState implements EngineState {
 
+    private static String normalise(String hint) {
+        return StringUtils.lowerCase(StringUtils.strip(hint));
+    }
+
     @Override
+    @SuppressWarnings("unchecked")
     public Try<GameState> execute(GameState gameState, Action<?> action) {
-        return null;
+        final var turn = gameState.turns().get(gameState.currentTurn());
+        if (turn.phase() != TurnPhase.SELECTION) {
+            return Try.failure(new IllegalActionException(ErrorCode.ILLEGAL_ACTION));
+        }
+        if (!Set.of(TurnAction.PROVIDE_HINT, TurnAction.CANCEL_PROVIDED_HINT).contains(action.playerAction())) {
+            return Try.failure(new IllegalActionException(ErrorCode.ILLEGAL_ACTION));
+        }
+        final var providers = turn.players().stream()
+                                  .filter(tp -> tp.roles().contains(TurnRole.PROVIDER))
+                                  .map(TurnPlayer::playerId)
+                                  .collect(Collectors.toSet());
+        if (!providers.contains(action.playerId())) {
+            return Try.failure(new IllegalActionException(ErrorCode.UNAUTHORISED_ACTION));
+        }
+
+        if (action.playerAction() == TurnAction.PROVIDE_HINT) {
+            return handleProvidedHint(gameState, (Action<String>) action);
+        }
+
+        return handleCancelHint(gameState, (Action<Void>) action);
+    }
+
+    private Try<GameState> handleProvidedHint(GameState gameState, Action<String> hintAction) {
+        final var turn = gameState.turns().get(gameState.currentTurn());
+        final var turnHints = new ArrayList<>(turn.providedHints());
+        final var currentPlayerIndex = IntStream.range(0, turnHints.size())
+                                                .filter(i -> turnHints.get(i).playerId().equals(hintAction.playerId()))
+                                                .findFirst();
+        if (currentPlayerIndex.isEmpty()) {
+            turnHints.add(new PlayerWord(hintAction.playerId(), hintAction.payload()));
+        } else {
+            turnHints.set(currentPlayerIndex.getAsInt(), new PlayerWord(hintAction.playerId(), hintAction.payload()));
+        }
+
+        final var turns = new ArrayList<>(gameState.turns());
+        turns.set(gameState.currentTurn(), updateTurn(turn, turnHints));
+        return Try.success(new GameState(
+                gameState.id(),
+                gameState.status(),
+                gameState.players(),
+                turns,
+                gameState.wordsToGuess(),
+                gameState.currentTurn()
+        ));
+    }
+
+    private Turn updateTurn(Turn oldTurn, List<PlayerWord> providedHints) {
+        final Map<String, String> hintsOfProviders = providedHints.stream()
+                                                                  .collect(Collectors.toMap(PlayerWord::playerId,
+                                                                                            PlayerWord::word));
+        final Set<String> providers = oldTurn.players().stream()
+                                             .filter(tp -> tp.roles().contains(TurnRole.PROVIDER))
+                                             .map(TurnPlayer::playerId)
+                                             .collect(Collectors.toSet());
+        if (!hintsOfProviders.keySet().containsAll(providers)) {
+            return new Turn(oldTurn.phase(), providedHints, oldTurn.hintsToFilter(), oldTurn.hintsToRemove(),
+                            oldTurn.wordGuessed(), oldTurn.players());
+        }
+
+        final Set<String> strippedCaseInsensitiveHints = hintsOfProviders.values().stream()
+                                                                         .map(SelectionState::normalise)
+                                                                         .collect(Collectors.toSet());
+        final List<String> toExclude = hintsOfProviders.values().stream()
+                                                       .filter(hint -> strippedCaseInsensitiveHints.contains(
+                                                               normalise(hint))).toList();
+        return new Turn(TurnPhase.REMOVAL, providedHints, toExclude, oldTurn.hintsToRemove(), oldTurn.wordGuessed(),
+                        oldTurn.players());
+    }
+
+    private Try<GameState> handleCancelHint(GameState gameState, Action<Void> cancelAction) {
+        final var turn = gameState.turns().get(gameState.currentTurn());
+        final var turnHints = new ArrayList<>(turn.providedHints());
+        final var currentPlayerIndex = IntStream.range(0, turnHints.size())
+                                                .filter(i -> turnHints.get(i).playerId()
+                                                                      .equals(cancelAction.playerId()))
+                                                .findFirst();
+        if (currentPlayerIndex.isPresent()) {
+            turnHints.remove(currentPlayerIndex.getAsInt());
+        }
+
+        final var turns = new ArrayList<>(gameState.turns());
+        turns.set(gameState.currentTurn(),
+                  new Turn(turn.phase(), turnHints, turn.hintsToFilter(), turn.hintsToRemove(), turn.wordGuessed(),
+                           turn.players()));
+        return Try.success(new GameState(
+                gameState.id(),
+                gameState.status(),
+                gameState.players(),
+                turns,
+                gameState.wordsToGuess(),
+                gameState.currentTurn()
+        ));
     }
 }

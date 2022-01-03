@@ -26,8 +26,11 @@ import static com.github.fburato.justone.RandomUtils.randomString;
 import static com.github.fburato.justone.game.EngineTestUtils.RichState;
 import static com.github.fburato.justone.game.EngineTestUtils.admit;
 import static com.github.fburato.justone.game.EngineTestUtils.cancel;
+import static com.github.fburato.justone.game.EngineTestUtils.extractProviders;
+import static com.github.fburato.justone.game.EngineTestUtils.hint;
 import static com.github.fburato.justone.game.EngineTestUtils.kick;
 import static com.github.fburato.justone.game.EngineTestUtils.proceed;
+import static com.github.fburato.justone.model.Builders.gameStateBuilder;
 import static com.github.fburato.justone.utils.StreamUtils.append;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -116,6 +119,46 @@ public class EngineTest {
                                                 initialState.wordsToGuess(),
                                                 initialState.currentTurn()
                                         )));
+    }
+
+    @Test
+    @DisplayName("should fail if currentTurn is negative")
+    void failOnNegativeCurrentTurn() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host)).gameState().get();
+        final var invalidState = new RichState(Try.success(gameStateBuilder(firstTurnState)
+                                                                   .with(gsb -> gsb.currentTurn = -1).build()),
+                                               testee::execute);
+        invalidState.execute(proceed(host))
+                    .isInvalidInstanceOfSatisfying(InvalidStateException.class, ise ->
+                            assertThat(ise.errorCodes()).containsExactly(ErrorCode.INVALID_CURRENT_TURN));
+    }
+
+    @Test
+    @DisplayName("should fail if currentTurn is greater than size")
+    void failOnGreaterThanSizeCurrentTurn() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host)).gameState().get();
+        final var invalidState = new RichState(Try.success(gameStateBuilder(firstTurnState)
+                                                                   .with(gsb -> gsb.currentTurn = 5).build()),
+                                               testee::execute);
+        invalidState.execute(proceed(host))
+                    .isInvalidInstanceOfSatisfying(InvalidStateException.class, ise ->
+                            assertThat(ise.errorCodes()).containsExactly(ErrorCode.INVALID_CURRENT_TURN));
+    }
+
+    @Test
+    @DisplayName("should allow to provide hints on selection")
+    void provideHints() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host))
+                                        .isValid();
+        final var providers = extractProviders(firstTurnState.gameState().get().turns().get(0));
+        firstTurnState.execute(hint(providers.get(0), randomString()))
+                      .isValid();
     }
 
     @Nested

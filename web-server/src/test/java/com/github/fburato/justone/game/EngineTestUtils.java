@@ -31,10 +31,19 @@ class EngineTestUtils {
         return new Action<>(executor, TurnAction.ADMIT_PLAYER, String.class, playerId);
     }
 
+    static Action<String> hint(String executor, String hint) {
+        return new Action<>(executor, TurnAction.PROVIDE_HINT, String.class, hint);
+    }
+
+    static Action<Void> removeHint(String executor) {
+        return new Action<>(executor, TurnAction.CANCEL_PROVIDED_HINT, Void.class, null);
+    }
+
     static String extractGuesser(Turn turn) {
         return extractOneRole(turn, TurnRole.GUESSER);
     }
-    public static String extractRemover(Turn turn) {
+
+    static String extractRemover(Turn turn) {
         return extractOneRole(turn, TurnRole.REMOVER);
     }
 
@@ -71,12 +80,16 @@ class EngineTestUtils {
         }
 
         public RichState isValid() {
-            assertThat(gameState.isFailure()).isFalse();
+            assertThat(gameState.isFailure())
+                    .withFailMessage("gameState was expected to be valid, but failed")
+                    .isFalse();
             return this;
         }
 
         public RichState isInvalid() {
-            assertThat(gameState.isFailure()).isTrue();
+            assertThat(gameState.isFailure())
+                    .withFailMessage("gameState was expected to be invalid, but it succeeded")
+                    .isTrue();
             return this;
         }
 
@@ -93,7 +106,7 @@ class EngineTestUtils {
 
         public <T extends Throwable> RichState isInvalidInstanceOfSatisfying(Class<T> throwableType, Consumer<T> t) {
             return isInvalidSatisfying(throwable ->
-                    assertThat(throwable).isInstanceOfSatisfying(throwableType, t));
+                                               assertThat(throwable).isInstanceOfSatisfying(throwableType, t));
         }
 
         public RichState isInvalidSatisfying(Consumer<Throwable> assertions) {
