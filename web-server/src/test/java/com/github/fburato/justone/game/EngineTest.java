@@ -26,8 +26,10 @@ import static com.github.fburato.justone.RandomUtils.randomString;
 import static com.github.fburato.justone.game.EngineTestUtils.RichState;
 import static com.github.fburato.justone.game.EngineTestUtils.admit;
 import static com.github.fburato.justone.game.EngineTestUtils.cancel;
+import static com.github.fburato.justone.game.EngineTestUtils.extractGuesser;
 import static com.github.fburato.justone.game.EngineTestUtils.extractProviders;
 import static com.github.fburato.justone.game.EngineTestUtils.extractRemover;
+import static com.github.fburato.justone.game.EngineTestUtils.guessWord;
 import static com.github.fburato.justone.game.EngineTestUtils.hint;
 import static com.github.fburato.justone.game.EngineTestUtils.kick;
 import static com.github.fburato.justone.game.EngineTestUtils.proceed;
@@ -177,6 +179,26 @@ public class EngineTest {
                 .execute(hint(providers.get(0), hints.get(0)))
                 .execute(hint(providers.get(1), hints.get(1)))
                 .execute(removeProvided(remover, hints.get(0)))
+                .isValid();
+    }
+
+    @Test
+    @DisplayName("should allow to guess word after removal")
+    void guessWordTest() {
+        validateAll();
+
+        final var firstTurnState = state.execute(proceed(host))
+                                        .isValid();
+        final var hints = List.of(randomString(), randomString());
+        final var providers = extractProviders(firstTurnState.gameState().get().turns().get(0));
+        final var remover = extractRemover(firstTurnState.gameState().get().turns().get(0));
+        final var guesser = extractGuesser(firstTurnState.gameState().get().turns().get(0));
+        firstTurnState
+                .execute(hint(providers.get(0), hints.get(0)))
+                .execute(hint(providers.get(1), hints.get(1)))
+                .execute(removeProvided(remover, hints.get(0)))
+                .execute(proceed(remover))
+                .execute(guessWord(guesser, randomString()))
                 .isValid();
     }
 

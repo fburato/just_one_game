@@ -47,6 +47,10 @@ class EngineTestUtils {
         return new Action<>(executor, TurnAction.CANCEL_REMOVED_HINT, String.class, removed);
     }
 
+    static Action<String> guessWord(String executor, String guess) {
+        return new Action<>(executor, TurnAction.GUESS_WORD, String.class, guess);
+    }
+
     static String extractGuesser(Turn turn) {
         return extractOneRole(turn, TurnRole.GUESSER);
     }
