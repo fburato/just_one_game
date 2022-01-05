@@ -3,6 +3,8 @@ package com.github.fburato.justone.controllers;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -17,6 +19,8 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 import static org.springframework.web.reactive.function.server.ServerResponse.status;
 
 public class ErrorHandlerMiddleware {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ErrorHandlerMiddleware.class);
 
     private final Function<Throwable, Optional<Tuple2<HttpStatus, ErrorDTO>>> errorMapper;
 
@@ -39,13 +43,19 @@ public class ErrorHandlerMiddleware {
                                             response = Mono.error(e);
                                         }
                                         return response.onErrorResume(throwable -> {
+
                                             final var error = errorMapper.apply(throwable)
-                                                                         .orElseGet(() -> Tuple.of(
-                                                                                 HttpStatus.INTERNAL_SERVER_ERROR,
-                                                                                 new ErrorDTO(String.format(
-                                                                                         "Unhandled exception with message='%s'",
-                                                                                         throwable.getMessage()),
-                                                                                              List.of())));
+                                                                         .orElseGet(() -> {
+                                                                             LOG.error(
+                                                                                     "Unhandled exception thrown with message={}",
+                                                                                     throwable.getMessage(), throwable);
+                                                                             return Tuple.of(
+                                                                                     HttpStatus.INTERNAL_SERVER_ERROR,
+                                                                                     new ErrorDTO(String.format(
+                                                                                             "Unhandled exception with message='%s'",
+                                                                                             throwable.getMessage()),
+                                                                                                  List.of()));
+                                                                         });
                                             return status(error._1)
                                                     .body(BodyInserters.fromValue(error._2));
                                         });

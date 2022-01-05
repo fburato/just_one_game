@@ -8,6 +8,8 @@ import com.github.fburato.justone.game.errors.ErrorCode;
 import com.github.fburato.justone.services.GameStateService;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -21,8 +23,11 @@ import java.util.Optional;
 @Configuration
 public class ControllerWiring {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ControllerWiring.class);
+
     static Optional<Tuple2<HttpStatus, ErrorDTO>> mapExceptions(Throwable t) {
         if (t instanceof final EngineException engineException) {
+            LOG.warn("EngineException thrown with message={}", engineException.getMessage(), engineException);
             final var intErrorCodes = engineException.errorCodes().stream()
                                                      .map(ErrorCode::code)
                                                      .toList();
@@ -33,10 +38,14 @@ public class ControllerWiring {
             ));
         }
         if (t instanceof final ServerWebInputException serverWebInputException) {
+            LOG.warn("ServerWebInputException thrown with message={}", serverWebInputException.getMessage(),
+                     serverWebInputException);
             return Optional.of(Tuple.of(HttpStatus.valueOf(serverWebInputException.getRawStatusCode()),
                                         new ErrorDTO(serverWebInputException.getReason(), List.of())));
         }
         if (t instanceof final IllegalArgumentException iae) {
+            LOG.warn("IllegalArgumentException thrown with message={}", iae.getMessage(), iae);
+
             return Optional.of(Tuple.of(
                     HttpStatus.BAD_REQUEST,
                     new ErrorDTO(iae.getMessage(), List.of())
@@ -55,6 +64,11 @@ public class ControllerWiring {
         final var errorMiddleware = new ErrorHandlerMiddleware(ControllerWiring::mapExceptions);
         final var compositeController = gameStateController.routes();
         return errorMiddleware.decorate(compositeController);
+    }
+
+    @Bean
+    public LoggingFilter loggingFilter() {
+        return new LoggingFilter();
     }
 
 }
