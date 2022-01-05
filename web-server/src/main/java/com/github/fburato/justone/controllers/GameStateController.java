@@ -60,7 +60,7 @@ public class GameStateController {
     private RouterFunction<ServerResponse> createGame() {
         return route(POST("/{id}/state"), req -> {
             final var id = req.pathVariable("id");
-            final var body = req.bodyToMono(GameStateService.CreateStateRequest.class);
+            final var body = ensureDefined(req.bodyToMono(GameStateService.CreateStateRequest.class));
             return body.flatMap(requestBody -> gameStateService.createGameState(id, requestBody)
                                                                .flatMap(gameState -> ok()
                                                                        .body(BodyInserters.fromValue(gameState)))
@@ -68,10 +68,24 @@ public class GameStateController {
         });
     }
 
+    private <T> Mono<T> ensureDefined(Mono<T> t) {
+        return t.switchIfEmpty(nullBodyErrorMono())
+                .flatMap(body -> {
+                    if (body == null) {
+                        return nullBodyErrorMono();
+                    }
+                    return Mono.just(body);
+                });
+    }
+
+    private <T> Mono<T> nullBodyErrorMono() {
+        return Mono.error(new IllegalArgumentException("body should be not null"));
+    }
+
     private RouterFunction<ServerResponse> executeAction() {
         return route(PUT("/{id}/state"), req -> {
             final var id = req.pathVariable("id");
-            final var action = req.bodyToMono(GameStateService.ActionRequest.class);
+            final var action = ensureDefined(req.bodyToMono(GameStateService.ActionRequest.class));
             return action.flatMap(ar -> gameStateService.executeAction(id, ar)
                                                         .flatMap(gs -> toServerResponse(id, gs)));
         });

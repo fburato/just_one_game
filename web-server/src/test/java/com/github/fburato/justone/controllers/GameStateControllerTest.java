@@ -1,5 +1,6 @@
 package com.github.fburato.justone.controllers;
 
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.model.GameState;
@@ -116,7 +117,6 @@ class GameStateControllerTest {
             verify(gameStateService).createGameState(gameId, request);
         }
 
-
         @Test
         @DisplayName("return 200 with game state if game state is defined")
         void okOnFound() {
@@ -130,6 +130,28 @@ class GameStateControllerTest {
                   .isEqualTo(HttpStatus.OK)
                   .expectBody(GameState.class)
                   .isEqualTo(gameState);
+        }
+
+
+        @Test
+        @DisplayName("fail with 500 if body is null")
+        void badRequestOnEmptyBody() {
+            client.post()
+                  .uri(uri)
+                  .bodyValue(NullNode.getInstance())
+                  .exchange()
+                  .expectStatus()
+                  .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("fail with 500 if body is not provided")
+        void badRequestOnNullBody() {
+            client.post()
+                  .uri(uri)
+                  .exchange()
+                  .expectStatus()
+                  .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         @Test
@@ -237,6 +259,27 @@ class GameStateControllerTest {
                   .exchange()
                   .expectStatus()
                   .isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        }
+
+        @Test
+        @DisplayName("fail with 500 if body is null")
+        void badRequestOnEmptyBody() {
+            client.put()
+                  .uri(uri)
+                  .bodyValue(NullNode.getInstance())
+                  .exchange()
+                  .expectStatus()
+                  .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("fail with 500 if body is not provided")
+        void badRequestOnNullBody() {
+            client.put()
+                  .uri(uri)
+                  .exchange()
+                  .expectStatus()
+                  .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         @Test
