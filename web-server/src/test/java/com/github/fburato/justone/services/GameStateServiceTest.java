@@ -309,4 +309,39 @@ class GameStateServiceTest {
                         .verifyErrorSatisfies(error -> assertThat(error).isEqualTo(exception));
         }
     }
+
+    @Nested
+    @DisplayName("on deleteGameState should")
+    class DeleteTest {
+
+        @Test
+        @DisplayName("return empty if state is not in repository")
+        void emptyOnNotExisting() {
+            StepVerifier.create(testee.deleteGameState(gameState1.id()))
+                        .expectNext(Optional.empty())
+                        .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("remove the game state from the repository if it exists")
+        void removeFromRepo() {
+            gameStateRepository.save(gameState1);
+
+            StepVerifier.create(testee.deleteGameState(gameState1.id()))
+                        .assertNext(GameStateServiceTest::anyNext)
+                        .verifyComplete();
+
+            assertThat(gameStateRepository.findById(gameState1.id())).isEmpty();
+        }
+
+        @Test
+        @DisplayName("return the game state retrieved from repository")
+        void returnGameState() {
+            gameStateRepository.save(gameState1);
+
+            StepVerifier.create(testee.deleteGameState(gameState1.id()))
+                        .expectNext(Optional.of(gameState1))
+                        .verifyComplete();
+        }
+    }
 }
