@@ -9,14 +9,9 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.Optional;
 
-import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
-import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
-import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
-import static org.springframework.web.reactive.function.server.RequestPredicates.PUT;
-import static org.springframework.web.reactive.function.server.RequestPredicates.path;
+import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
 import static org.springframework.web.reactive.function.server.ServerResponse.status;
@@ -44,7 +39,7 @@ public class GameStateController {
         return route(GET("/{id}/state"), req -> {
             final var id = req.pathVariable("id");
             return gameStateService.getGameState(id)
-                                   .flatMap(gs -> toServerResponse(id, gs));
+                    .flatMap(gs -> toServerResponse(id, gs));
         });
     }
 
@@ -54,7 +49,7 @@ public class GameStateController {
                         .body(BodyInserters.fromValue(gameState)))
                 .orElseGet(() -> status(HttpStatus.NOT_FOUND)
                         .body(BodyInserters.fromValue(
-                                new ErrorDTO(String.format("State for game='%s' could not be found", id), List.of()))));
+                                new ErrorDTO(String.format("State for game='%s' could not be found", id)))));
     }
 
     private RouterFunction<ServerResponse> createGame() {
@@ -62,8 +57,8 @@ public class GameStateController {
             final var id = req.pathVariable("id");
             final var body = ensureDefined(req.bodyToMono(GameStateService.CreateStateRequest.class));
             return body.flatMap(requestBody -> gameStateService.createGameState(id, requestBody)
-                                                               .flatMap(gameState -> ok()
-                                                                       .body(BodyInserters.fromValue(gameState)))
+                    .flatMap(gameState -> ok()
+                            .body(BodyInserters.fromValue(gameState)))
             );
         });
     }
@@ -87,7 +82,7 @@ public class GameStateController {
             final var id = req.pathVariable("id");
             final var action = ensureDefined(req.bodyToMono(GameStateService.ActionRequest.class));
             return action.flatMap(ar -> gameStateService.executeAction(id, ar)
-                                                        .flatMap(gs -> toServerResponse(id, gs)));
+                    .flatMap(gs -> toServerResponse(id, gs)));
         });
     }
 
@@ -95,7 +90,7 @@ public class GameStateController {
         return route(DELETE("/{id}/state"), req -> {
             final var id = req.pathVariable("id");
             return gameStateService.deleteGameState(id)
-                                   .flatMap(gs -> toServerResponse(id, gs));
+                    .flatMap(gs -> toServerResponse(id, gs));
         });
     }
 }

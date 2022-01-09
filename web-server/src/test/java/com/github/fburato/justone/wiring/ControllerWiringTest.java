@@ -43,7 +43,7 @@ class ControllerWiringTest {
     @BeforeEach
     void setUp() {
         webTestClient = WebTestClient.bindToRouterFunction(routerFunction)
-                                     .build();
+                .build();
     }
 
     @Test
@@ -71,7 +71,7 @@ class ControllerWiringTest {
                     .expectStatus()
                     .isEqualTo(HttpStatus.NOT_FOUND)
                     .expectBody(ErrorDTO.class)
-                    .isEqualTo(new ErrorDTO("'PATCH /foobar' is not handled by this server", List.of()));
+                    .isEqualTo(new ErrorDTO("'PATCH /foobar' is not handled by this server"));
 
         }
 
@@ -86,7 +86,7 @@ class ControllerWiringTest {
                     .expectStatus()
                     .isEqualTo(HttpStatus.BAD_REQUEST)
                     .expectBody(ErrorDTO.class)
-                    .isEqualTo(new ErrorDTO("Failed to read HTTP message", List.of()));
+                    .isEqualTo(new ErrorDTO("Failed to read HTTP message"));
 
         }
 
@@ -102,7 +102,7 @@ class ControllerWiringTest {
                     .expectStatus()
                     .isEqualTo(HttpStatus.NOT_FOUND)
                     .expectBody(ErrorDTO.class)
-                    .isEqualTo(new ErrorDTO("State for game='gameId1' could not be found", List.of()));
+                    .isEqualTo(new ErrorDTO("State for game='gameId1' could not be found"));
 
         }
 
@@ -138,7 +138,7 @@ class ControllerWiringTest {
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                     .expectBody(ErrorDTO.class)
                     .isEqualTo(new ErrorDTO("ILLEGAL_ACTION, UNKNOWN",
-                                            List.of(ErrorCode.ILLEGAL_ACTION.code(), ErrorCode.UNKNOWN.code())));
+                            List.of(ErrorCode.ILLEGAL_ACTION.code(), ErrorCode.UNKNOWN.code())));
         }
 
         @Test
@@ -151,7 +151,7 @@ class ControllerWiringTest {
                     .expectStatus()
                     .isEqualTo(HttpStatus.BAD_REQUEST)
                     .expectBody(ErrorDTO.class)
-                    .isEqualTo(new ErrorDTO("body should be not null", List.of()));
+                    .isEqualTo(new ErrorDTO("body should be not null"));
 
         }
 
@@ -169,8 +169,7 @@ class ControllerWiringTest {
                     .expectStatus()
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                     .expectBody(ErrorDTO.class)
-                    .isEqualTo(new ErrorDTO(String.format("Unhandled exception with message='%s'", errorMessage),
-                                            List.of()));
+                    .isEqualTo(new ErrorDTO(String.format("Unhandled exception with message='%s'", errorMessage)));
         }
     }
 }

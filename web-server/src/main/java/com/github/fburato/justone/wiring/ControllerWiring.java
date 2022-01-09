@@ -17,7 +17,6 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.server.ServerWebInputException;
 
-import java.util.List;
 import java.util.Optional;
 
 @Configuration
@@ -29,8 +28,8 @@ public class ControllerWiring {
         if (t instanceof final EngineException engineException) {
             LOG.warn("EngineException thrown with message={}", engineException.getMessage(), engineException);
             final var intErrorCodes = engineException.errorCodes().stream()
-                                                     .map(ErrorCode::code)
-                                                     .toList();
+                    .map(ErrorCode::code)
+                    .toList();
             final var all4xx = intErrorCodes.stream().allMatch(i -> i / 100_000 == 4);
             return Optional.of(Tuple.of(
                     all4xx ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR,
@@ -39,16 +38,16 @@ public class ControllerWiring {
         }
         if (t instanceof final ServerWebInputException serverWebInputException) {
             LOG.warn("ServerWebInputException thrown with message={}", serverWebInputException.getMessage(),
-                     serverWebInputException);
+                    serverWebInputException);
             return Optional.of(Tuple.of(HttpStatus.valueOf(serverWebInputException.getRawStatusCode()),
-                                        new ErrorDTO(serverWebInputException.getReason(), List.of())));
+                    new ErrorDTO(serverWebInputException.getReason())));
         }
         if (t instanceof final IllegalArgumentException iae) {
             LOG.warn("IllegalArgumentException thrown with message={}", iae.getMessage(), iae);
 
             return Optional.of(Tuple.of(
                     HttpStatus.BAD_REQUEST,
-                    new ErrorDTO(iae.getMessage(), List.of())
+                    new ErrorDTO(iae.getMessage())
             ));
         }
         return Optional.empty();

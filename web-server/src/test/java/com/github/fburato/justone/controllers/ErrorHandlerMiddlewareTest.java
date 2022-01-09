@@ -10,7 +10,6 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -22,7 +21,7 @@ class ErrorHandlerMiddlewareTest {
     private final ErrorHandlerMiddleware testee = new ErrorHandlerMiddleware(t -> {
         if (t instanceof IllegalArgumentException) {
             return Optional.of(Tuple.of(HttpStatus.GATEWAY_TIMEOUT,
-                                        new ErrorDTO(String.format("iae with message=%s", t.getMessage()), List.of())));
+                    new ErrorDTO(String.format("iae with message=%s", t.getMessage()))));
         }
         return Optional.empty();
     });
@@ -34,65 +33,65 @@ class ErrorHandlerMiddlewareTest {
             })
             .andRoute(GET("/controlledFail"), req -> Mono.error(new RuntimeException("barfoo")));
     WebTestClient webTestClient = WebTestClient.bindToRouterFunction(testee.decorate(testRoute))
-                                               .build();
+            .build();
 
     @Test
     @DisplayName("should execute request normally if no error is returned")
     void routeNormally() {
         webTestClient.get()
-                     .uri("/normal")
-                     .exchange()
-                     .expectStatus()
-                     .isOk()
-                     .expectBody(String.class)
-                     .isEqualTo("foo");
+                .uri("/normal")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody(String.class)
+                .isEqualTo("foo");
     }
 
     @Test
     @DisplayName("should convert exception handled by the partial function into the expected status code and error body")
     void handledException() {
         webTestClient.get()
-                     .uri("/illegalArgument")
-                     .exchange()
-                     .expectStatus()
-                     .isEqualTo(HttpStatus.GATEWAY_TIMEOUT)
-                     .expectBody(ErrorDTO.class)
-                     .isEqualTo(new ErrorDTO("iae with message=foobar", List.of()));
+                .uri("/illegalArgument")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.GATEWAY_TIMEOUT)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO("iae with message=foobar"));
     }
 
     @Test
     @DisplayName("should convert eagerly thrown exception into 500 with generic error body")
     void eagerHandling() {
         webTestClient.get()
-                     .uri("/eagerFail")
-                     .exchange()
-                     .expectStatus()
-                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
-                     .expectBody(ErrorDTO.class)
-                     .isEqualTo(new ErrorDTO("Unhandled exception with message='foobaz'", List.of()));
+                .uri("/eagerFail")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO("Unhandled exception with message='foobaz'"));
     }
 
     @Test
     @DisplayName("should convert reactively thrown exception into 500 with generic error body")
     void controlledError() {
         webTestClient.get()
-                     .uri("/controlledFail")
-                     .exchange()
-                     .expectStatus()
-                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
-                     .expectBody(ErrorDTO.class)
-                     .isEqualTo(new ErrorDTO("Unhandled exception with message='barfoo'", List.of()));
+                .uri("/controlledFail")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO("Unhandled exception with message='barfoo'"));
     }
 
     @Test
     @DisplayName("should return 404 with message if route is not registered")
     void notFound() {
         webTestClient.patch()
-                     .uri("/notRouted")
-                     .exchange()
-                     .expectStatus()
-                     .isEqualTo(HttpStatus.NOT_FOUND)
-                     .expectBody(ErrorDTO.class)
-                     .isEqualTo(new ErrorDTO("'PATCH /notRouted' is not handled by this server", List.of()));
+                .uri("/notRouted")
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.NOT_FOUND)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO("'PATCH /notRouted' is not handled by this server"));
     }
 }
