@@ -1,21 +1,7 @@
 package com.github.fburato.justone;
 
-import com.github.fburato.justone.dtos.gamestates.GameStateDTO;
-import com.github.fburato.justone.dtos.gamestates.GameStateSummaryDTO;
-import com.github.fburato.justone.dtos.gamestates.PlayerDTO;
-import com.github.fburato.justone.dtos.gamestates.PlayerWordDTO;
-import com.github.fburato.justone.dtos.gamestates.TurnDTO;
-import com.github.fburato.justone.dtos.gamestates.TurnPlayerDTO;
-import com.github.fburato.justone.dtos.gamestates.WordsDTO;
-import com.github.fburato.justone.model.GameState;
-import com.github.fburato.justone.model.GameStatus;
-import com.github.fburato.justone.model.Player;
-import com.github.fburato.justone.model.PlayerRole;
-import com.github.fburato.justone.model.PlayerWord;
-import com.github.fburato.justone.model.Turn;
-import com.github.fburato.justone.model.TurnPhase;
-import com.github.fburato.justone.model.TurnPlayer;
-import com.github.fburato.justone.model.TurnRole;
+import com.github.fburato.justone.dtos.gamestates.*;
+import com.github.fburato.justone.model.*;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import java.util.List;
@@ -126,5 +112,9 @@ public final class RandomUtils {
                 List.of(randomString(), randomString()),
                 nextInt(0, 60)
         );
+    }
+
+    public static GameConfig randomGameConfig() {
+        return new GameConfig(randomString(), randomString(), randomString(), List.of(randomString(), randomString()));
     }
 }
