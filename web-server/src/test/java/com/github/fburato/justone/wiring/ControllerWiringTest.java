@@ -1,5 +1,6 @@
 package com.github.fburato.justone.wiring;
 
+import com.github.fburato.justone.controllers.ValidationException;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.game.errors.ErrorCode;
 import com.github.fburato.justone.game.errors.IllegalActionException;
@@ -170,6 +171,23 @@ class ControllerWiringTest {
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                     .expectBody(ErrorDTO.class)
                     .isEqualTo(new ErrorDTO(String.format("Unhandled exception with message='%s'", errorMessage)));
+        }
+
+        @Test
+        @DisplayName("return a 400 error for validation exceptions")
+        void validation400() {
+            final var errorMessage = randomString();
+            when(gameStateService.deleteGameState(anyString()))
+                    .thenReturn(Mono.error(new ValidationException(List.of(errorMessage))));
+
+            webTestClient
+                    .delete()
+                    .uri("/games/gameId1/state")
+                    .exchange()
+                    .expectStatus()
+                    .isEqualTo(HttpStatus.BAD_REQUEST)
+                    .expectBody(ErrorDTO.class)
+                    .isEqualTo(new ErrorDTO(List.of(errorMessage)));
         }
     }
 }

@@ -11,4 +11,8 @@ public record ErrorDTO(List<String> messages, List<Integer> errorCodes) {
     public ErrorDTO(String message) {
         this(message, List.of());
     }
+
+    public ErrorDTO(List<String> messages) {
+        this(messages, List.of());
+    }
 }

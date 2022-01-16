@@ -2,6 +2,7 @@ package com.github.fburato.justone.wiring;
 
 import com.github.fburato.justone.controllers.ErrorHandlerMiddleware;
 import com.github.fburato.justone.controllers.GameStateController;
+import com.github.fburato.justone.controllers.ValidationException;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.game.errors.EngineException;
 import com.github.fburato.justone.game.errors.ErrorCode;
@@ -41,6 +42,10 @@ public class ControllerWiring {
                     serverWebInputException);
             return Optional.of(Tuple.of(HttpStatus.valueOf(serverWebInputException.getRawStatusCode()),
                     new ErrorDTO(serverWebInputException.getReason())));
+        }
+        if (t instanceof final ValidationException validationException) {
+            LOG.info("User input failed to validate with messages: {}", validationException.validationErrors());
+            return Optional.of(Tuple.of(HttpStatus.BAD_REQUEST, new ErrorDTO(validationException.validationErrors())));
         }
         if (t instanceof final IllegalArgumentException iae) {
             LOG.warn("IllegalArgumentException thrown with message={}", iae.getMessage(), iae);
