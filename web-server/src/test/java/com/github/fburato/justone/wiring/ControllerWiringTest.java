@@ -5,7 +5,10 @@ import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.game.errors.ErrorCode;
 import com.github.fburato.justone.game.errors.IllegalActionException;
 import com.github.fburato.justone.model.TurnAction;
+import com.github.fburato.justone.services.GameConfigService;
 import com.github.fburato.justone.services.GameStateService;
+import com.github.fburato.justone.services.errors.ConflictException;
+import com.github.fburato.justone.services.errors.EntityIdMismatchException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,6 +32,7 @@ import static com.github.fburato.justone.RandomUtils.randomString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -37,6 +41,10 @@ class ControllerWiringTest {
 
     @MockBean
     private GameStateService gameStateService;
+
+    @MockBean
+    private GameConfigService gameConfigService;
+
     @Autowired
     private RouterFunction<ServerResponse> routerFunction;
     private WebTestClient webTestClient;
@@ -57,6 +65,29 @@ class ControllerWiringTest {
     @Import(ControllerWiring.class)
     static class TestConfig {
 
+    }
+
+    @Test
+    @DisplayName("should wire GameStateController")
+    void gameStateWired() {
+        webTestClient
+                .get()
+                .uri("/games/gameId1/state")
+                .exchange();
+
+        verify(gameStateService).getGameState("gameId1");
+    }
+
+    @Test
+    @DisplayName("should wire GameConfigController")
+    void gameConfigWired() {
+
+        webTestClient
+                .get()
+                .uri("/games/gameId2/config")
+                .exchange();
+
+        verify(gameConfigService).getGameConfig("gameId2");
     }
 
     @Nested
@@ -188,6 +219,42 @@ class ControllerWiringTest {
                     .isEqualTo(HttpStatus.BAD_REQUEST)
                     .expectBody(ErrorDTO.class)
                     .isEqualTo(new ErrorDTO(List.of(errorMessage)));
+        }
+
+        @Test
+        @DisplayName("return a 409 for a conflict exception")
+        void conflict409() {
+            final var exception = new ConflictException(randomString(), randomString());
+            when(gameStateService.deleteGameState(anyString()))
+                    .thenReturn(Mono.error(exception));
+
+            webTestClient
+                    .delete()
+                    .uri("/games/gameId1/state")
+                    .exchange()
+                    .expectStatus()
+                    .isEqualTo(HttpStatus.CONFLICT)
+                    .expectBody(ErrorDTO.class)
+                    .isEqualTo(new ErrorDTO(String.format("conflict: entityType=%s with entityId=%s is already defined",
+                            exception.entityType(), exception.entityId())));
+        }
+
+        @Test
+        @DisplayName("return a 400 for a EntityMismatchException")
+        void entityMismatch400() {
+            final var exception = new EntityIdMismatchException(randomString(), randomString());
+            when(gameStateService.deleteGameState(anyString()))
+                    .thenReturn(Mono.error(exception));
+
+            webTestClient
+                    .delete()
+                    .uri("/games/gameId1/state")
+                    .exchange()
+                    .expectStatus()
+                    .isEqualTo(HttpStatus.BAD_REQUEST)
+                    .expectBody(ErrorDTO.class)
+                    .isEqualTo(new ErrorDTO(String.format("the resourceId=%s of the request does not match entityId=%s",
+                            exception.resourceId(), exception.entityId())));
         }
     }
 }

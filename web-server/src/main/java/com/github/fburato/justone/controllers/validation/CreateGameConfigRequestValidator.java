@@ -1,6 +1,6 @@
 package com.github.fburato.justone.controllers.validation;
 
-import com.github.fburato.justone.model.GameConfig;
+import com.github.fburato.justone.controllers.GameConfigController;
 import io.vavr.control.Validation;
 
 import java.util.List;
@@ -9,21 +9,19 @@ import java.util.function.Function;
 import static com.github.fburato.justone.controllers.validation.BaseValidators.nonEmptyList;
 import static com.github.fburato.justone.controllers.validation.BaseValidators.notBlankStrippedString;
 
-public class GameConfigValidator implements EntityValidator.Validator<GameConfig> {
-
+public class CreateGameConfigRequestValidator implements EntityValidator.Validator<GameConfigController.CreateGameConfigRequest> {
     @Override
-    public Class<GameConfig> validatorType() {
-        return GameConfig.class;
+    public Class<GameConfigController.CreateGameConfigRequest> validatorType() {
+        return GameConfigController.CreateGameConfigRequest.class;
     }
 
     @Override
-    public Validation<List<String>, GameConfig> validate(GameConfig value) {
+    public Validation<List<String>, GameConfigController.CreateGameConfigRequest> validate(GameConfigController.CreateGameConfigRequest value) {
         return Validation.combine(
-                        notBlankStrippedString(value.gameId(), "gameId"),
                         notBlankStrippedString(value.host(), "host"),
                         notBlankStrippedString(value.languageId(), "languageId"),
                         nonEmptyList(value.wordPackNames(), "wordPackNames"))
-                .ap(GameConfig::new)
+                .ap(GameConfigController.CreateGameConfigRequest::new)
                 .mapError(s -> s.flatMap(Function.identity()).asJava());
     }
 }
