@@ -1,7 +1,7 @@
 package com.github.fburato.justone.controllers;
 
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.github.fburato.justone.controllers.validation.EntityValidator;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.model.GameState;
 import com.github.fburato.justone.model.TurnAction;
@@ -12,10 +12,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.github.fburato.justone.ArgumentMatchers.satisfies;
 import static com.github.fburato.justone.RandomUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -24,7 +26,8 @@ import static org.mockito.Mockito.*;
 class GameStateControllerTest {
 
     private final GameStateService gameStateService = mock(GameStateService.class);
-    private final GameStateController gameStateController = new GameStateController(gameStateService);
+    private final EntityValidator entityValidator = mock(EntityValidator.class);
+    private final GameStateController gameStateController = new GameStateController(gameStateService, entityValidator);
     private final WebTestClient client = WebTestClient.bindToRouterFunction(gameStateController.routes())
             .build();
     private final String gameId = randomString();
@@ -99,90 +102,75 @@ class GameStateControllerTest {
         private final GameStateService.CreateStateRequest request = new GameStateService.CreateStateRequest(
                 randomString(), List.of(randomString(), randomString()), List.of(randomString(), randomString()));
         private final GameState gameState = randomGameState();
+        private final GameStateService.CreateStateRequest validatedRequest = new GameStateService.CreateStateRequest(
+                randomString(), List.of(randomString(), randomString()), List.of(randomString(), randomString()));
 
         @Test
-        @DisplayName("resolve gameState from service")
-        void resolveFromService() {
-            when(gameStateService.createGameState(anyString(), any())).thenReturn(Mono.just(gameState));
+        @DisplayName("validate body with entity validator")
+        void validateRequestBody() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
 
-            client.post()
+            request();
+
+            verify(entityValidator).parseBodyAndValidate(satisfies(req ->
+                    StepVerifier.create(req.bodyToMono(GameStateService.CreateStateRequest.class))
+                            .expectNext(request)
+                            .verifyComplete()), eq(GameStateService.CreateStateRequest.class));
+        }
+
+        private WebTestClient.ResponseSpec request() {
+            return client.post()
                     .uri(uri)
                     .bodyValue(request)
                     .exchange();
+        }
 
-            verify(gameStateService).createGameState(gameId, request);
+        @Test
+        @DisplayName("resolve gameState from service passing validated request body")
+        void resolveFromService() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
+            when(gameStateService.createGameState(anyString(), any())).thenReturn(Mono.just(gameState));
+
+            request();
+
+            verify(gameStateService).createGameState(gameId, validatedRequest);
         }
 
         @Test
         @DisplayName("return 200 with game state if game state is defined")
         void okOnFound() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
             when(gameStateService.createGameState(anyString(), any())).thenReturn(Mono.just(gameState));
 
-            client.post()
-                    .uri(uri)
-                    .bodyValue(request)
-                    .exchange()
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.OK)
                     .expectBody(GameState.class)
                     .isEqualTo(gameState);
         }
 
-
         @Test
-        @DisplayName("fail with 500 if body is null")
-        void badRequestOnEmptyBody() {
-            client.post()
-                    .uri(uri)
-                    .bodyValue(NullNode.getInstance())
-                    .exchange()
+        @DisplayName("bubble up exceptions generated during validation")
+        void bubbleUpValidationExceptions() {
+            final var exception = new RuntimeException(randomString());
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.error(exception));
+
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
 
-        @Test
-        @DisplayName("fail with 500 if body is not provided")
-        void badRequestOnNullBody() {
-            client.post()
-                    .uri(uri)
-                    .exchange()
-                    .expectStatus()
-                    .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @DisplayName("fail with 400 if request body is not json")
-        void badRequestOnNotJson() {
-            client.post()
-                    .uri(uri)
-                    .bodyValue("not json")
-                    .exchange()
-                    .expectStatus()
-                    .isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
-        }
-
-        @Test
-        @DisplayName("fail with 400 if request body does not deserialise to request")
-        void badRequestOnMalformedJson() {
-            client.post()
-                    .uri(uri)
-                    .bodyValue(42)
-                    .exchange()
-                    .expectStatus()
-                    .isEqualTo(HttpStatus.BAD_REQUEST);
+            verifyNoInteractions(gameStateService);
         }
 
         @Test
         @DisplayName("bubble up exceptions if they are raised from the service")
         void bubbleUpException() {
             final var exception = new RuntimeException(randomString());
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
             when(gameStateService.createGameState(anyString(), any()))
                     .thenReturn(Mono.error(exception));
 
-            client.post()
-                    .uri(uri)
-                    .bodyValue(request)
-                    .exchange()
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -198,32 +186,55 @@ class GameStateControllerTest {
                         TurnAction.class),
                 new TextNode(
                         randomString()));
+
+        private final GameStateService.ActionRequest validatedRequest = new GameStateService.ActionRequest(randomString(),
+                randomEnum(
+                        TurnAction.class),
+                new TextNode(
+                        randomString()));
         private final GameState gameState = randomGameState();
 
         private final String notFoundMessage = String.format("State for game='%s' could not be found", gameId);
 
         @Test
-        @DisplayName("resolve gameState from service")
-        void resolveFromService() {
+        @DisplayName("validate entity with entity validator")
+        void validateEntity() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
             when(gameStateService.executeAction(anyString(), any())).thenReturn(Mono.just(Optional.empty()));
 
-            client.put()
+            request();
+
+            verify(entityValidator).parseBodyAndValidate(satisfies(req ->
+                    StepVerifier.create(req.bodyToMono(GameStateService.ActionRequest.class))
+                            .expectNext(request)
+                            .verifyComplete()), eq(GameStateService.ActionRequest.class));
+        }
+
+        private WebTestClient.ResponseSpec request() {
+            return client.put()
                     .uri(uri)
                     .bodyValue(request)
                     .exchange();
+        }
 
-            verify(gameStateService).executeAction(gameId, request);
+        @Test
+        @DisplayName("execute action on service with validated action")
+        void resolveFromService() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
+            when(gameStateService.executeAction(anyString(), any())).thenReturn(Mono.just(Optional.empty()));
+
+            request();
+
+            verify(gameStateService).executeAction(gameId, validatedRequest);
         }
 
         @Test
         @DisplayName("return 404 with message if gameState is empty")
         void notFoundOnEmpty() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
             when(gameStateService.executeAction(anyString(), any())).thenReturn(Mono.just(Optional.empty()));
 
-            client.put()
-                    .uri(uri)
-                    .bodyValue(request)
-                    .exchange()
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.NOT_FOUND)
                     .expectBody(ErrorDTO.class)
@@ -234,12 +245,10 @@ class GameStateControllerTest {
         @Test
         @DisplayName("return 200 with game state if game state is defined")
         void okOnFound() {
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.just(validatedRequest));
             when(gameStateService.executeAction(anyString(), any())).thenReturn(Mono.just(Optional.of(gameState)));
 
-            client.put()
-                    .uri(uri)
-                    .bodyValue(request)
-                    .exchange()
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.OK)
                     .expectBody(GameState.class)
@@ -247,46 +256,14 @@ class GameStateControllerTest {
         }
 
         @Test
-        @DisplayName("fail with 400 if request body is not json")
-        void badRequestOnNotJson() {
-            client.put()
-                    .uri(uri)
-                    .bodyValue("not json")
-                    .exchange()
-                    .expectStatus()
-                    .isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
-        }
+        @DisplayName("bubble up exceptions generated from the validator")
+        void bubbleUpValidationExceptions() {
+            final var exception = new RuntimeException(randomString());
+            when(entityValidator.parseBodyAndValidate(any(), any())).thenReturn(Mono.error(exception));
 
-        @Test
-        @DisplayName("fail with 500 if body is null")
-        void badRequestOnEmptyBody() {
-            client.put()
-                    .uri(uri)
-                    .bodyValue(NullNode.getInstance())
-                    .exchange()
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @DisplayName("fail with 500 if body is not provided")
-        void badRequestOnNullBody() {
-            client.put()
-                    .uri(uri)
-                    .exchange()
-                    .expectStatus()
-                    .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-        @Test
-        @DisplayName("fail with 400 if request body does not deserialise to request")
-        void badRequestOnMalformedJson() {
-            client.put()
-                    .uri(uri)
-                    .bodyValue(42)
-                    .exchange()
-                    .expectStatus()
-                    .isEqualTo(HttpStatus.BAD_REQUEST);
         }
 
         @Test
@@ -295,10 +272,7 @@ class GameStateControllerTest {
             final var exception = new RuntimeException(randomString());
             when(gameStateService.executeAction(anyString(), any())).thenReturn(Mono.error(exception));
 
-            client.put()
-                    .uri(uri)
-                    .bodyValue(request)
-                    .exchange()
+            request()
                     .expectStatus()
                     .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
         }

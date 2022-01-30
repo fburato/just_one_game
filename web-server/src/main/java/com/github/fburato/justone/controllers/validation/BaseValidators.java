@@ -38,4 +38,11 @@ class BaseValidators {
         }
         return Validation.valid(trimmed);
     }
+
+    static <T> Validation<Seq<String>, T> notNull(T value, String fieldName) {
+        if (value == null) {
+            return Validation.invalid(io.vavr.collection.List.of(String.format("%s should not be null", fieldName)));
+        }
+        return Validation.valid(value);
+    }
 }

@@ -1,9 +1,11 @@
 package com.github.fburato.justone.wiring;
 
+import com.github.fburato.justone.controllers.GameConfigController;
 import com.github.fburato.justone.controllers.ValidationException;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.game.errors.ErrorCode;
 import com.github.fburato.justone.game.errors.IllegalActionException;
+import com.github.fburato.justone.model.GameConfig;
 import com.github.fburato.justone.model.TurnAction;
 import com.github.fburato.justone.services.GameConfigService;
 import com.github.fburato.justone.services.GameStateService;
@@ -88,6 +90,73 @@ class ControllerWiringTest {
                 .exchange();
 
         verify(gameConfigService).getGameConfig("gameId2");
+    }
+
+    @Test
+    @DisplayName("should wire CreateGameConfigRequest validator")
+    void createGameConfigRequestValidator() {
+        webTestClient
+                .post()
+                .uri("/games/gameId1/config")
+                .bodyValue(new GameConfigController.CreateGameConfigRequest("", "", List.of()))
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.BAD_REQUEST)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO(List.of("host='' is blank while it should be defined",
+                        "languageId='' is blank while it should be defined",
+                        "wordPackNames=[] is an empty-list while it should be non-empty")));
+    }
+
+    @Test
+    @DisplayName("should wire GameConfig validator")
+    void gameConfigValidator() {
+        webTestClient
+                .put()
+                .uri("/games/gameId1/config")
+                .bodyValue(new GameConfig("", "", "", List.of()))
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.BAD_REQUEST)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO(List.of("gameId='' is blank while it should be defined",
+                        "host='' is blank while it should be defined",
+                        "languageId='' is blank while it should be defined",
+                        "wordPackNames=[] is an empty-list while it should be non-empty")));
+    }
+
+    @Test
+    @DisplayName("should wire CreateStateRequestValidator")
+    void createStateRequestValidator() {
+        webTestClient
+                .post()
+                .uri("/games/gameId1/state")
+                .bodyValue(new GameStateService.CreateStateRequest(null, List.of(), List.of()))
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.BAD_REQUEST)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO(List.of(
+                        "host='null' is blank while it should be defined",
+                        "players=[] is an empty-list while it should be non-empty",
+                        "wordsToGuess=[] is an empty-list while it should be non-empty"
+                )));
+    }
+
+    @Test
+    @DisplayName("should wire ActionRequest validator")
+    void actionRequestValidator() {
+        webTestClient
+                .put()
+                .uri("/games/gameId1/state")
+                .bodyValue(new GameStateService.ActionRequest(null, TurnAction.ADMIT_PLAYER, null))
+                .exchange()
+                .expectStatus()
+                .isEqualTo(HttpStatus.BAD_REQUEST)
+                .expectBody(ErrorDTO.class)
+                .isEqualTo(new ErrorDTO(List.of(
+                        "playerId='null' is blank while it should be defined"
+                )));
     }
 
     @Nested

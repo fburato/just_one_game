@@ -1,5 +1,6 @@
 package com.github.fburato.justone.controllers;
 
+import com.github.fburato.justone.controllers.validation.EntityValidator;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.model.GameState;
 import com.github.fburato.justone.services.GameStateService;
@@ -19,9 +20,11 @@ import static org.springframework.web.reactive.function.server.ServerResponse.st
 public class GameStateController {
 
     private final GameStateService gameStateService;
+    private final EntityValidator entityValidator;
 
-    public GameStateController(GameStateService gameStateService) {
+    public GameStateController(GameStateService gameStateService, EntityValidator entityValidator) {
         this.gameStateService = gameStateService;
+        this.entityValidator = entityValidator;
     }
 
     public RouterFunction<ServerResponse> routes() {
@@ -55,7 +58,7 @@ public class GameStateController {
     private RouterFunction<ServerResponse> createGame() {
         return route(POST("/{id}/state"), req -> {
             final var id = req.pathVariable("id");
-            final var body = ensureDefined(req.bodyToMono(GameStateService.CreateStateRequest.class));
+            final var body = entityValidator.parseBodyAndValidate(req, GameStateService.CreateStateRequest.class);
             return body.flatMap(requestBody -> gameStateService.createGameState(id, requestBody)
                     .flatMap(gameState -> ok()
                             .body(BodyInserters.fromValue(gameState)))
@@ -63,24 +66,10 @@ public class GameStateController {
         });
     }
 
-    private <T> Mono<T> ensureDefined(Mono<T> t) {
-        return t.switchIfEmpty(nullBodyErrorMono())
-                .flatMap(body -> {
-                    if (body == null) {
-                        return nullBodyErrorMono();
-                    }
-                    return Mono.just(body);
-                });
-    }
-
-    private <T> Mono<T> nullBodyErrorMono() {
-        return Mono.error(new IllegalArgumentException("body should be not null"));
-    }
-
     private RouterFunction<ServerResponse> executeAction() {
         return route(PUT("/{id}/state"), req -> {
             final var id = req.pathVariable("id");
-            final var action = ensureDefined(req.bodyToMono(GameStateService.ActionRequest.class));
+            final var action = entityValidator.parseBodyAndValidate(req, GameStateService.ActionRequest.class);
             return action.flatMap(ar -> gameStateService.executeAction(id, ar)
                     .flatMap(gs -> toServerResponse(id, gs)));
         });

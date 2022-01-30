@@ -1,5 +1,6 @@
 package com.github.fburato.justone.controllers.validation;
 
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.github.fburato.justone.controllers.ValidationException;
 import io.vavr.control.Validation;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -28,7 +29,11 @@ public class EntityValidator {
 
     public <T> Mono<T> parseBodyAndValidate(ServerRequest serverRequest, Class<T> tClass) {
         return serverRequest.bodyToMono(tClass)
+                .switchIfEmpty(nullBodyErrorMono())
                 .flatMap(value -> {
+                    if (value == null || value == NullNode.getInstance()) {
+                        return nullBodyErrorMono();
+                    }
                     final var validator = validatorFor(tClass);
                     final var validationResult = validator.validate(value);
                     if (validationResult.isValid()) {
@@ -36,6 +41,10 @@ public class EntityValidator {
                     }
                     return Mono.error(new ValidationException(validationResult.getError()));
                 });
+    }
+
+    private <T> Mono<T> nullBodyErrorMono() {
+        return Mono.error(new IllegalArgumentException("body should be not null"));
     }
 
     @SuppressWarnings("unchecked")

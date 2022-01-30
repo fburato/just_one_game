@@ -1,5 +1,6 @@
 package com.github.fburato.justone.controllers.validation;
 
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.github.fburato.justone.controllers.ValidationException;
 import io.vavr.control.Validation;
 import org.apache.commons.lang3.StringUtils;
@@ -62,6 +63,26 @@ class EntityValidatorTest {
         final var request = MockServerRequest.builder().body(Mono.just(42));
         StepVerifier.create(testee.parseBodyAndValidate(request, String.class))
                 .verifyErrorSatisfies(t -> assertThat(t).isInstanceOf(ClassCastException.class));
+    }
+
+    @Test
+    @DisplayName("should fail if body is empty")
+    void failOnEmpty() {
+        final var request = MockServerRequest.builder().body(Mono.empty());
+
+        StepVerifier.create(testee.parseBodyAndValidate(request, String.class))
+                .verifyErrorSatisfies(t -> assertThat(t).isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("body should be not null"));
+    }
+
+    @Test
+    @DisplayName("should fail if body is empty")
+    void failOnNull() {
+        final var request = MockServerRequest.builder().body(Mono.just(NullNode.getInstance()));
+
+        StepVerifier.create(testee.parseBodyAndValidate(request, String.class))
+                .verifyErrorSatisfies(t -> assertThat(t).isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("body should be not null"));
     }
 
     @Test

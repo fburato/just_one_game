@@ -4,9 +4,7 @@ import com.github.fburato.justone.controllers.ErrorHandlerMiddleware;
 import com.github.fburato.justone.controllers.GameConfigController;
 import com.github.fburato.justone.controllers.GameStateController;
 import com.github.fburato.justone.controllers.ValidationException;
-import com.github.fburato.justone.controllers.validation.CreateGameConfigRequestValidator;
-import com.github.fburato.justone.controllers.validation.EntityValidator;
-import com.github.fburato.justone.controllers.validation.GameConfigValidator;
+import com.github.fburato.justone.controllers.validation.*;
 import com.github.fburato.justone.dtos.ErrorDTO;
 import com.github.fburato.justone.game.errors.EngineException;
 import com.github.fburato.justone.game.errors.ErrorCode;
@@ -89,13 +87,15 @@ public class ControllerWiring {
     public EntityValidator entityValidator() {
         return new EntityValidator(List.of(
                 new GameConfigValidator(),
-                new CreateGameConfigRequestValidator()
+                new CreateGameConfigRequestValidator(),
+                new CreateStateRequestValidator(),
+                new ActionRequestValidator()
         ));
     }
 
     @Bean
-    public GameStateController gameStateController(GameStateService gameStateService) {
-        return new GameStateController(gameStateService);
+    public GameStateController gameStateController(GameStateService gameStateService, EntityValidator entityValidator) {
+        return new GameStateController(gameStateService, entityValidator);
     }
 
     @Bean
